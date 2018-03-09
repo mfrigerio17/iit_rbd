@@ -15,6 +15,7 @@
 
 #include <iit/rbd/rbd.h>
 #include <iit/rbd/utils.h>
+#include <iit/robcogen/scalar/internals.h>
 
 #include "../utils.h"
 
@@ -26,7 +27,12 @@ namespace robcogen {
  */
 namespace test {
 
+namespace {
 
+template<typename ROB>
+using Scalar = typename internal::ScalarTraitsSelector< ROB >::trait::Scalar;
+
+}
 /**
  * \name Dynamics tests
  * These functions compare the output of three dynamics algorithms to verify
@@ -84,7 +90,7 @@ void fixedBaseDynamics(
     typename RT::InvDynEngine& invDynEngine,
     typename RT::JSIM&         jsim)
 {
-    iit::rbd::Utils::CwiseAlmostZeroOp<double> approx(1E-5);
+    iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-5);
     typename RT::JointState q, qd, qdd, qdd_fd, c, g, tau, diff;
     robcogen::utils::rand_jstate<RT>(q, qd, qdd);
 
@@ -131,7 +137,7 @@ void floatingBaseDynamics(
     typename RT::InvDynEngine& invDynEngine,
     typename RT::JSIM&         jsim)
 {
-    iit::rbd::Utils::CwiseAlmostZeroOp<double> approx(1E-10);
+    iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-10);
     typename RT::JointState q, qd, qdd, qdd_fd, tau_g, tau_c, tau, diff;
     iit::rbd::VelocityVector base_v, base_a, base_a_fd, diff_base_a, gravity;
     iit::rbd::ForceVector base_wrench_g, base_wrench_c, base_wrench, diff_wrench;
@@ -202,7 +208,7 @@ void fixedBaseJSIMInverse(
         typename RT::InvDynEngine& invDynEngine,
         typename RT::JSIM&         jsim)
 {
-    iit::rbd::Utils::CwiseAlmostZeroOp<double> approx(1E-5);
+    iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-5);
     typename RT::JointState q, qd, qdd, g, tau, diff;
     robcogen::utils::rand_jstate<RT>(q, qdd, tau);
 

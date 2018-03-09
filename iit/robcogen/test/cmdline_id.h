@@ -12,6 +12,7 @@
 
 #include <iit/rbd/rbd.h>
 #include <iit/robcogen/utils.h>
+#include <iit/robcogen/scalar/internals.h>
 
 
 namespace iit {
@@ -28,9 +29,10 @@ void cmdline_id(int argc, char** argv, typename ROB::InvDynEngine& id)
     typename ROB::JointState q, qd, qdd, tau;
     robcogen::utils::cmdlineargs_jstate<ROB>(argc-1, &(argv[1]), q, qd, qdd);
 
+    typedef typename internal::ScalarTraitsSelector< ROB >::trait::Scalar Scalar;
     //
     int c = ROB::joints_count * 3 + 1;
-    typename ROB::FwdDynEngine::ExtForces fext(rbd::ForceVector::Zero());
+    typename ROB::FwdDynEngine::ExtForces fext(rbd::Force<Scalar>::Zero());
     if(argc > c) {
         std::string extForcesFile(argv[c]);
         robcogen::test::readExtForces<ROB>(extForcesFile, fext);

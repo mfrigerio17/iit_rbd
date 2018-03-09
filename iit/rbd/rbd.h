@@ -34,7 +34,33 @@ namespace iit {
  */
 namespace rbd {
 
-/** \name Basic matrix types */
+/**
+ * \defgroup rbd-core RBD Core
+ * Main, basic data types and functions
+ *
+ * All the types are templated on the Scalar type. There are two ways of
+ * defining a complete type in client code. For individual types one can use
+ * something like this:
+ * \code
+ *      typedef iit::rbd::Velocity< float > myVelocity;
+ * \endcode
+ *
+ * An alternative, maybe neater in the case of multiple types, is the following:
+ * \code
+ *      typedef float Scalar;
+ *      typedef iit::rbd::Core< Scalar > mycore;
+ *
+ *      using Matrix33 = mycore::Matrix33;
+ *      using Vector3  = mycore::Vector3;
+ *      using Velocity = mycore::VelocityVector;
+ *      // etc.
+ * \endcode
+ * @{
+ */
+
+/**
+ * \name General matrix types
+ */
 ///@{
 // Use alias templates to limit the references to 'Eigen' to this header
 
@@ -54,59 +80,130 @@ template<typename Scalar>
 using SparseVector = Eigen::SparseVector<Scalar>;
 ///@}
 
-/** \name Other basic types */
+/**
+ * A container of basic type/function definitions, templated on the scalar type.
+ *
+ * \tparam SCALAR the numerical type for scalar values
+ */
+template<typename SCALAR>
+struct Core
+{
+    typedef SCALAR Scalar;
+
+    /** \name Basic matrix types */
+    ///@{
+    template<int R, int C> using PlainMatrix = PlainMatrix<Scalar, R, C >;
+    typedef PlainMatrix<3,3> Matrix33;
+    typedef PlainMatrix<6,6> Matrix66;
+    typedef PlainMatrix<3,1> Vector3;
+    typedef PlainMatrix<6,1> Vector6;
+    ///@}
+
+    /**
+     * \name 6D vectors "à la Featherstone"
+     * Types of vectors used in dynamics computations.
+     */
+    ///@{
+    typedef Vector6  Vector6D;       // here the 'D' stands for Dimension, not double !
+    typedef Vector6D Column6D;
+    typedef Vector6D VelocityVector;
+    typedef Vector6D ForceVector;
+
+    typedef MatrixBlock<Vector6D,3,1>       Part3D;     ///< a 3D subvector of a 6D vector
+    typedef MatrixBlock<const Vector6D,3,1> Part3DConst;///< a const 3D subvector of a 6D vector
+    ///@}
+
+
+    /**
+     *  \name 6D vectors accessors
+     *  These functions allow to access the linear and the angular
+     *  coordinates of motion/force vectors.
+     */
+    ///@{
+    /**
+     * The 3-coordinate vector with the angular components (angular
+     * velocity or torque) of the given 6D vector.
+     */
+    static inline Part3D angularPart(Vector6D& f) {
+        return f.template topRows<3>();
+    }
+    /**
+     * The 3-coordinate vector with the linear components (linear
+     * velocity or force) of the given 6D vector.
+     */
+    static inline Part3D linearPart(Vector6D& f) {
+        return f.template bottomRows<3>();
+    }
+    static inline Part3DConst angularPart(const Vector6D& f) {
+        return f.template topRows<3>();
+    }
+    static inline Part3DConst linearPart(const Vector6D& f) {
+        return f.template bottomRows<3>();
+    }
+};
+
+#define TPL template<typename S>
+/**
+ * \name Generators of individual core types
+ *
+ * These aliases are useful when one or few types are needed, given a Scalar.
+ */
 ///@{
-typedef Eigen::Matrix3d Matrix33d;
-typedef Eigen::Vector3d Vector3d;
-
-typedef PlainMatrix<double, 6, 6> Matrix66d;
-typedef SparseMatrix<double>      SparseMatrixd;
-
-typedef PlainMatrix<double, 6, 1> Column6d;
-typedef SparseVector<double> SparseColumnd;
+TPL using Velocity = typename Core<S>::VelocityVector;
+TPL using Force    = typename Core<S>::ForceVector;
+TPL using Mat33    = typename Core<S>::Matrix33;
+TPL using Mat66    = typename Core<S>::Matrix66;
+TPL using Vec3     = typename Core<S>::Vector3;
+TPL using Vec6     = typename Core<S>::Vector6;
 ///@}
+#undef TPL
 
 /**
- * \name 6D vectors "à la Featherstone"
- * Types of vectors used in dynamics computations.
+ * \name Core types using double as scalar
+ *
+ * Explicit instantiation of all the various matrix types using the standard
+ * \c double as the scalar type. These definitions are included for backward
+ * compatibility with client code using prior non-templated version of this
+ * library.
+ *
+ * See Core.
  */
 ///@{
-typedef Column6d Vector6D;
-typedef Vector6D VelocityVector;
-typedef Vector6D ForceVector;
+typedef Core<double> Cored;
 
-typedef MatrixBlock<Vector6D,3,1>       Part3D;     ///< a 3D subvector of a 6D vector
-typedef MatrixBlock<const Vector6D,3,1> Part3DConst;///< a const 3D subvector of a 6D vector
-///@}
+using Matrix33d = Cored::Matrix33;
+using Vector3d  = Cored::Vector3;
+using Matrix66d = Cored::Matrix66;
+using Vector6d  = Cored::Vector6;
 
-/**
- *  \name 6D vectors accessors
- *  These functions allow to access the linear and the angular coordinates of
- *  motion/force vectors.
- */
-///@{
-/**
- * The 3-coordinate vector with the angular components (angular
- * velocity or torque) of the given 6D vector.
- */
+using Vector6D       = Cored::Vector6D;
+using VelocityVector = Cored::VelocityVector;
+using ForceVector    = Cored::ForceVector;
+
+using Part3D      = Cored::Part3D;
+using Part3DConst = Cored::Part3DConst;
+
+using Column6d = Cored::Column6D;  // an alias
+
+using SparseMatrixd = SparseMatrix<double>;
+using SparseColumnd = SparseVector<double>;
+
+
 inline Part3D angularPart(Vector6D& f) {
-	return f.topRows<3>();
+    return Cored::angularPart(f);
 }
-/**
- * The 3-coordinate vector with the linear components (linear
- * velocity or force) of the given 6D vector.
- */
 inline Part3D linearPart(Vector6D& f) {
-	return f.bottomRows<3>();
+    return Cored::linearPart(f);
 }
-
 inline Part3DConst angularPart(const Vector6D& f) {
-    return f.topRows<3>();
+    return Cored::angularPart(f);
 }
 inline Part3DConst linearPart(const Vector6D& f) {
-    return f.bottomRows<3>();
+    return Cored::linearPart(f);
 }
 ///@}
+
+
 
 /**
  * \name Vector coordinates
@@ -118,14 +215,7 @@ enum Coords3D { X=0, Y, Z};
 enum Coords6D { AX=0, AY, AZ, LX, LY, LZ };
 ///@}
 
-class InertiaMatrixDense;
-class InertiaMatrixSparse;
-
-class CoordinateTransformDense;
-class CoordinateTransformSparse;
-
-class MotionSubspaceMxDense;
-class MotionSubspaceMxSparse;
+///@} // end of implicit in-group elements [Doxygen]
 
 /**
  * The Earth gravitational acceleration constant.

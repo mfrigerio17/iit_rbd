@@ -16,31 +16,37 @@
 namespace iit {
 namespace rbd {
 
+namespace tpl {
 /**
  * Dense 6x6 matrix that represents the 6D spatial inertia tensor.
  * See chapther 2 of Featherstone's "Rigid body dynamics algorithms".
  */
-class InertiaMatrixDense : public Matrix66d {
+template<typename SCALAR>
+class InertiaMatrixDense : public Core<SCALAR>::Matrix66
+{
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
+    typedef SCALAR Scalar;
 private:
-    typedef Matrix66d Base;
+    typedef Core<Scalar> Cores;
+    typedef typename Cores::Matrix66 Base;
+    typedef typename Cores::Matrix33 Mat33;
+    typedef typename Cores::Vector3  Vec3;
     typedef MatrixBlock<const Base,3,3> Block33_const;
     typedef MatrixBlock<Base,3,3> Block33_t;
 
 public:
     template<typename OtherDerived>
-    InertiaMatrixDense& operator= (const MatrixBase<OtherDerived>& other);
+    InertiaMatrixDense<Scalar>& operator= (const MatrixBase<OtherDerived>& other);
 
     template<typename OtherDerived>
-    InertiaMatrixDense& operator+= (const MatrixBase<OtherDerived>& other);
+    InertiaMatrixDense<Scalar>& operator+= (const MatrixBase<OtherDerived>& other);
 
     InertiaMatrixDense();
     /**
      * See fill()
      */
-    InertiaMatrixDense(double m, const Vector3d& com, const Matrix33d& I);
+    InertiaMatrixDense(Scalar m, const Vec3& com, const Mat33& I);
 
 public:
     /**
@@ -59,7 +65,7 @@ public:
      *    theorem is NOT applied. The given tensor is copied as it is, in the
      *    appropriate 3x3 sub-block of this spatial tensor.
      */
-    void fill(double m, const Vector3d& com, const Matrix33d& tensor);
+    void fill(Scalar m, const Vec3& com, const Mat33& tensor);
 
     /** \name Components getters **/
     ///@{
@@ -67,12 +73,12 @@ public:
      * @return the current value of the mass of the rigid body modeled by this
      * tensor
      */
-    double getMass() const;
+    Scalar getMass() const;
     /**
      * @return the position of the center-of-mass of the rigid body modeled by
      *   this spatial tensor
      */
-    Vector3d getCOM() const;
+    Vec3 getCOM() const;
     /**
      * @return the 3x3 block of this spatial tensor which corresponds to the
      *   sole rotational inertia, that is, the classical inertia tensor
@@ -96,7 +102,7 @@ public:
      * @param newMass the new value of the mass (always expressed in Kilograms);
      *    it MUST be positive, no checks are performed
      */
-    void changeMass(double m);
+    void changeMass(Scalar m);
     /**
      * Changes the position of the Center-Of-Mass of the rigid body modeled by
      * this tensor.
@@ -111,13 +117,13 @@ public:
      * @param newcom a 3D vector specifying the position of the center of mass,
      *   expressed in meters
      */
-    void changeCOM(const Vector3d& newcom);
+    void changeCOM(const Vec3& newcom);
     /**
      * Simply sets the 3x3 block that corresponds to the classical rotational
      * inertia
      * @param tensor the new 3x3 rotational inertia tensor
      */
-    void changeRotationalInertia(const Matrix33d& tensor);
+    void changeRotationalInertia(const Mat33& tensor);
     ///@}
 protected:
     void setTheFixedZeros();
@@ -127,17 +133,21 @@ protected:
             const MatrixBase<Vector>& v,
             Block33_t block);
 private:
-    void set(double m, const Vector3d& com, const Matrix33d& I);
+    void set(Scalar m, const Vec3& com, const Mat33& I);
 
 };
 
-class InertiaMatrixSparse : public SparseMatrixd {
-    typedef SparseMatrixd Base;
+template<typename SCALAR>
+class InertiaMatrixSparse : public SparseMatrix<SCALAR>
+{
+    typedef SparseMatrix<SCALAR> Base;
 };
 
 
-#define block33 this->block<3,3>
+#define block33 this->template block<3,3>
 #define data    (this->operator())
+#define TPL     template<typename S>
+#define CLASS   InertiaMatrixDense<S>
 
 
 /* I do not care here about the creation of temporaries, thus I use const
@@ -145,8 +155,8 @@ class InertiaMatrixSparse : public SparseMatrixd {
  * matrix expression. If you haven't read Eigen docs, this comment is
  * completely obscure!
  */
-
-inline InertiaMatrixDense::InertiaMatrixDense() : Base() {
+TPL
+inline CLASS::InertiaMatrixDense() : Base() {
     setTheFixedZeros();
 }
 
@@ -154,41 +164,45 @@ inline InertiaMatrixDense::InertiaMatrixDense() : Base() {
  * Initializes this 6x6 tensor according to the given inertia parameters.
  * \see fill()
  */
-inline InertiaMatrixDense::InertiaMatrixDense(
-        double mass, const Vector3d& cogPosition, const Matrix33d& tensor)
+TPL
+inline CLASS::InertiaMatrixDense(
+        Scalar mass, const Vec3& cogPosition, const Mat33& tensor)
 : Base()
 {
     setTheFixedZeros();
     set(mass, cogPosition, tensor);
 }
 
-inline void InertiaMatrixDense::fill(double mass, const Vector3d& comPosition,
-        const Matrix33d& tensor)
+TPL
+inline void CLASS::fill(Scalar mass, const Vec3& comPosition,
+        const Mat33& tensor)
 {
     set(mass, comPosition, tensor);
 }
 
-inline double InertiaMatrixDense::getMass() const
+TPL
+inline typename CLASS::Scalar CLASS::getMass() const
 {
     return data(LX,LX);
 }
 
-
-inline Vector3d InertiaMatrixDense::getCOM() const
+TPL
+inline typename CLASS::Vec3 CLASS::getCOM() const
 {
-    return Vector3d(
+    return Vec3(
             data(AZ,LY)/data(LX,LX), // X coordinate of the COM
             data(AX,LZ)/data(LX,LX), // Y
             data(AY,LX)/data(LX,LX));// Z
 }
 
-inline const InertiaMatrixDense::Block33_const InertiaMatrixDense::get3x3Tensor() const
+TPL
+inline const typename CLASS::Block33_const CLASS::get3x3Tensor() const
 {
     return block33(AX,AX);
 }
 
-
-inline void InertiaMatrixDense::changeMass(double newMass) {
+TPL
+inline void CLASS::changeMass(Scalar newMass) {
     // Note the use of indices AX and hard-coded 0, to make it independent from
     //  the convention angular/linear
     this->template block<3,6>(AX,0) *= newMass/getMass();
@@ -196,7 +210,8 @@ inline void InertiaMatrixDense::changeMass(double newMass) {
     data(LX,LX) = data(LY,LY) = data(LZ,LZ) = newMass;
 }
 
-inline void InertiaMatrixDense::changeCOM(const Vector3d& newcom)
+TPL
+inline void CLASS::changeCOM(const Vec3& newcom)
 {
     // Update the angular-linear block according to the new COM position
     setSkewSymmetricBlock(  getMass() * newcom, block33(AX,LX));
@@ -216,16 +231,17 @@ inline void InertiaMatrixDense::changeCOM(const Vector3d& newcom)
     // setSkewSymmetricBlock( - getMass() * newcom, block33(LX,AX));
 }
 
-inline void InertiaMatrixDense::changeRotationalInertia(const Matrix33d& tensor)
+TPL
+inline void CLASS::changeRotationalInertia(const Mat33& tensor)
 {
     block33(AX,AX) = tensor;
 }
 
-
-inline void InertiaMatrixDense::set(
-        double mass,
-        const Vector3d& com,
-        const Matrix33d& tensor)
+TPL
+inline void CLASS::set(
+        Scalar mass,
+        const Vec3& com,
+        const Mat33& tensor)
 {
     block33(AX,AX) = tensor;// + mass * comCrossMx * comCrossMx.transpose();
 
@@ -239,9 +255,9 @@ inline void InertiaMatrixDense::set(
     data(LX,LX) = data(LY,LY) = data(LZ,LZ) = mass;
 }
 
-
+TPL
 template<typename OtherDerived>
-inline InertiaMatrixDense& InertiaMatrixDense::operator=
+inline CLASS& CLASS::operator=
         (const MatrixBase<OtherDerived>& other)
 {
     // Here we silently assume that 'other' is also an inertia...
@@ -250,7 +266,7 @@ inline InertiaMatrixDense& InertiaMatrixDense::operator=
     // of matrix expressions. We also do not want to perform any check, for
     // performance reasons (remember this library is meant primarily to support
     // code generation, not to be a robust API for user applications).
-    block33(AX,AX) = other.block<3,3>(AX,AX);
+    block33(AX,AX) = other.template block<3,3>(AX,AX);
     data(AX,LY) = data(LY,AX) = - ( data(AY,LX) = data(LX,AY) = other(LX,AY) );
     data(AZ,LX) = data(LX,AZ) = - ( data(AX,LZ) = data(LZ,AX) = other(LZ,AX) );
     data(AY,LZ) = data(LZ,AY) = - ( data(AZ,LY) = data(LY,AZ) = other(LY,AZ) );
@@ -258,11 +274,12 @@ inline InertiaMatrixDense& InertiaMatrixDense::operator=
     return *this;
 }
 
+TPL
 template<typename OtherDerived>
-inline InertiaMatrixDense& InertiaMatrixDense::operator+=
+inline CLASS& CLASS::operator+=
         (const MatrixBase<OtherDerived>& other)
 {
-    block33(AX,AX) += other.block<3,3>(AX,AX);
+    block33(AX,AX) += other.template block<3,3>(AX,AX);
     data(AX,LY) = data(LY,AX) = - ( data(AY,LX) = (data(LX,AY) += other(LX,AY)) );
     data(AZ,LX) = data(LX,AZ) = - ( data(AX,LZ) = (data(LZ,AX) += other(LZ,AX)) );
     data(AY,LZ) = data(LZ,AY) = - ( data(AZ,LY) = (data(LY,AZ) += other(LY,AZ)) );
@@ -270,16 +287,17 @@ inline InertiaMatrixDense& InertiaMatrixDense::operator+=
     return *this;
 }
 
-
-inline void InertiaMatrixDense::setTheFixedZeros()
+TPL
+inline void CLASS::setTheFixedZeros()
 {
     block33(LX,LX).setZero(); // the diagonal won't be zero, but who cares
     data(AX,LX) = data(AY,LY) = data(AZ,LZ) =
             data(LX,AX) = data(LY,AY) = data(LZ,AZ) = 0;
 }
 
+TPL
 template<typename Vector>
-inline void InertiaMatrixDense::setSkewSymmetricBlock(
+inline void CLASS::setSkewSymmetricBlock(
         const MatrixBase<Vector>& v, Block33_t block)
 {
     block(X,Y) = - ( block(Y,X) = v(Z) );
@@ -290,6 +308,15 @@ inline void InertiaMatrixDense::setSkewSymmetricBlock(
 
 #undef block33
 #undef data
+#undef TPL
+#undef CLASS
+}
+
+// For backward compatibility:
+using InertiaMatrixDense = tpl::InertiaMatrixDense<double>;
+
+// Convenience alias
+template<typename S> using InertiaMat = tpl::InertiaMatrixDense<S>;
 
 }
 }

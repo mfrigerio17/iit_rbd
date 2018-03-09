@@ -24,13 +24,15 @@ namespace internal {
  * the performance (coefficient access typically comes at the cost of few
  * arithmetic operations)
  */
-struct Mat3x3Coefficients {
-    double XX,XY,XZ,YX,YY,YZ,ZX,ZY,ZZ;
+template<typename Scalar>
+struct Mat3x3Coefficients
+{
+    Scalar XX,XY,XZ,YX,YY,YZ,ZX,ZY,ZZ;
 
     Mat3x3Coefficients() {}
-    Mat3x3Coefficients(double xx, double xy, double xz,
-                       double yx, double yy, double yz,
-                       double zx, double zy, double zz) :
+    Mat3x3Coefficients(Scalar xx, Scalar xy, Scalar xz,
+                       Scalar yx, Scalar yy, Scalar yz,
+                       Scalar zx, Scalar zy, Scalar zz) :
                XX(xx), XY(xy), XZ(xz),
                YX(yx), YY(yy), YZ(yz),
                ZX(zx), ZY(zy), ZZ(zz)
@@ -57,14 +59,15 @@ struct Mat3x3Coefficients {
  *
  * See comment above.
  */
+template<typename Scalar>
 struct SymmMat3x3Coefficients {
-    double XX,XY,XZ,YY,YZ,ZZ;
+    Scalar XX,XY,XZ,YY,YZ,ZZ;
 
     SymmMat3x3Coefficients() {}
 
-    SymmMat3x3Coefficients(double xx, double xy, double xz,
-                                      double yy, double yz,
-                                                 double zz) :
+    SymmMat3x3Coefficients(Scalar xx, Scalar xy, Scalar xz,
+                                      Scalar yy, Scalar yz,
+                                                 Scalar zz) :
                XX(xx), XY(xy), XZ(xz),
                        YY(yy), YZ(yz),
                                ZZ(zz)
@@ -99,34 +102,35 @@ struct SymmMat3x3Coefficients {
  *
  * These calculations are documented in the appendix of Roy's book
  */
+template<typename Scalar>
 inline void rot_symmetric_EAET(
-          const Mat3x3Coefficients& E,
-          const SymmMat3x3Coefficients& A,
-                SymmMat3x3Coefficients& B)
+          const Mat3x3Coefficients<Scalar>& E,
+          const SymmMat3x3Coefficients<Scalar>& A,
+                SymmMat3x3Coefficients<Scalar>& B)
 {
-    double LXX = A.XX - A.ZZ;
-    double LXY = A.XY; // same as LYX
-    double LYY = A.YY - A.ZZ;
-    double LZX = 2*A.XZ;
-    double LZY = 2*A.YZ;
+    Scalar LXX = A.XX - A.ZZ;
+    Scalar LXY = A.XY; // same as LYX
+    Scalar LYY = A.YY - A.ZZ;
+    Scalar LZX = 2*A.XZ;
+    Scalar LZY = 2*A.YZ;
 
-    double yXX = E.YX*LXX + E.YY*LXY + E.YZ*LZX;
-    double yXY = E.YX*LXY + E.YY*LYY + E.YZ*LZY;
-    double yYX = E.ZX*LXX + E.ZY*LXY + E.ZZ*LZX;
-    double yYY = E.ZX*LXY + E.ZY*LYY + E.ZZ*LZY;
+    Scalar yXX = E.YX*LXX + E.YY*LXY + E.YZ*LZX;
+    Scalar yXY = E.YX*LXY + E.YY*LYY + E.YZ*LZY;
+    Scalar yYX = E.ZX*LXX + E.ZY*LXY + E.ZZ*LZX;
+    Scalar yYY = E.ZX*LXY + E.ZY*LYY + E.ZZ*LZY;
 
-    double v1 = -A.YZ;
-    double v2 =  A.XZ;
-    double EvX = E.XX*v1 + E.XY*v2;
-    double EvY = E.YX*v1 + E.YY*v2;
-    double EvZ = E.ZX*v1 + E.ZY*v2;
+    Scalar v1 = -A.YZ;
+    Scalar v2 =  A.XZ;
+    Scalar EvX = E.XX*v1 + E.XY*v2;
+    Scalar EvY = E.YX*v1 + E.YY*v2;
+    Scalar EvZ = E.ZX*v1 + E.ZY*v2;
 
     B.XY = yXX * E.XX + yXY * E.XY + EvZ;
     B.XZ = yYX * E.XX + yYY * E.XY - EvY;
     B.YZ = yYX * E.YX + yYY * E.YY + EvX;
 
-    double zYY = yXX * E.YX + yXY * E.YY;
-    double zZZ = yYX * E.ZX + yYY * E.ZY;
+    Scalar zYY = yXX * E.YX + yXY * E.YY;
+    Scalar zZZ = yYX * E.ZX + yYY * E.ZY;
     B.XX = LXX + LYY - zYY - zZZ + A.ZZ;
     B.YY = zYY + A.ZZ;
     B.ZZ = zZZ + A.ZZ;
@@ -137,30 +141,31 @@ inline void rot_symmetric_EAET(
  * matrix E
  *    B = E * A * E^T
  */
+template<typename Scalar>
 inline void rot_EAET(
-        const Mat3x3Coefficients& E,
-        const Mat3x3Coefficients& A,
-              Mat3x3Coefficients& B)
+        const Mat3x3Coefficients<Scalar>& E,
+        const Mat3x3Coefficients<Scalar>& A,
+              Mat3x3Coefficients<Scalar>& B)
 {
-    double LXX = A.XX - A.ZZ;
-    double LXY = A.XY;
-    double LYX = A.YX;
-    double LYY = A.YY - A.ZZ;
-    double LZX = A.ZX + A.XZ;
-    double LZY = A.ZY + A.YZ;
+    Scalar LXX = A.XX - A.ZZ;
+    Scalar LXY = A.XY;
+    Scalar LYX = A.YX;
+    Scalar LYY = A.YY - A.ZZ;
+    Scalar LZX = A.ZX + A.XZ;
+    Scalar LZY = A.ZY + A.YZ;
 
-    double v1 = -A.YZ;
-    double v2 =  A.XZ;
-    double EvX = E.XX*v1 + E.XY*v2;
-    double EvY = E.YX*v1 + E.YY*v2;
-    double EvZ = E.ZX*v1 + E.ZY*v2;
+    Scalar v1 = -A.YZ;
+    Scalar v2 =  A.XZ;
+    Scalar EvX = E.XX*v1 + E.XY*v2;
+    Scalar EvY = E.YX*v1 + E.YY*v2;
+    Scalar EvZ = E.ZX*v1 + E.ZY*v2;
 
-    double yXX = E.XX*LXX + E.XY*LYX + E.XZ*LZX;
-    double yXY = E.XX*LXY + E.XY*LYY + E.XZ*LZY;
-    double yYX = E.YX*LXX + E.YY*LYX + E.YZ*LZX;
-    double yYY = E.YX*LXY + E.YY*LYY + E.YZ*LZY;
-    double yZX = E.ZX*LXX + E.ZY*LYX + E.ZZ*LZX;
-    double yZY = E.ZX*LXY + E.ZY*LYY + E.ZZ*LZY;
+    Scalar yXX = E.XX*LXX + E.XY*LYX + E.XZ*LZX;
+    Scalar yXY = E.XX*LXY + E.XY*LYY + E.XZ*LZY;
+    Scalar yYX = E.YX*LXX + E.YY*LYX + E.YZ*LZX;
+    Scalar yYY = E.YX*LXY + E.YY*LYY + E.YZ*LZY;
+    Scalar yZX = E.ZX*LXX + E.ZY*LYX + E.ZZ*LZX;
+    Scalar yZY = E.ZX*LXY + E.ZY*LYY + E.ZZ*LZY;
 
     B.XX = yXX*E.XX + yXY*E.XY + A.ZZ;
     B.YY = yYX*E.YX + yYY*E.YY + A.ZZ;

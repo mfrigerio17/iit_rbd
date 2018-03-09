@@ -35,10 +35,10 @@ namespace rbd {
 template<class State, int Rows, int Cols, class ActualMatrix>
 class StateDependentMatrix  :
         public StateDependentBase<State, ActualMatrix>,
-        public PlainMatrix<double, Rows, Cols>
+        public PlainMatrix<typename State::Scalar, Rows, Cols>
 {
     private:
-        typedef PlainMatrix<double, Rows, Cols> Base;
+        typedef PlainMatrix<typename State::Scalar, Rows, Cols> Base;
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         /** The type of the coefficients of this matrix */

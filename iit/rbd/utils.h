@@ -14,6 +14,7 @@
 #include <iostream>
 
 #include "rbd.h"
+#include "scalar_traits.h"
 
 namespace iit {
 namespace rbd {
@@ -33,17 +34,18 @@ class Utils {
         struct CwiseAlmostZeroOp {
             CwiseAlmostZeroOp(const Scalar& threshold) : thresh(threshold) {}
             const Scalar operator()(const Scalar& x) const {
-                return std::abs(x) < thresh ? 0 : x;
+                return ScalarTraits<Scalar>::abs(x) < thresh ? 0 : x;
             }
             private:
                 Scalar thresh;
         };
 public:
-    static Matrix33d buildInertiaTensor(
-            double Ixx, double Iyy, double Izz,
-            double Ixy, double Ixz, double Iyz)
+    template <typename Scalar>
+    static Mat33<Scalar> buildInertiaTensor(
+            Scalar Ixx, Scalar Iyy, Scalar Izz,
+            Scalar Ixy, Scalar Ixz, Scalar Iyz)
     {
-        Matrix33d I;
+        Mat33<Scalar> I;
         I <<  Ixx, -Ixy, -Ixz,
              -Ixy,  Iyy, -Iyz,
              -Ixz, -Iyz,  Izz;
@@ -70,18 +72,12 @@ public:
     {
         eigen_assert(mx.rows() == 3  &&  mx.cols() == 3);
 
-        static double cx;
-        static double sx;
-        static double cy;
-        static double sy;
-        static double cz;
-        static double sz;
-        cx = std::cos(rx);
-        sx = std::sin(rx);
-        cy = std::cos(ry);
-        sy = std::sin(ry);
-        cz = std::cos(rz);
-        sz = std::sin(rz);
+        double cx = std::cos(rx);
+        double sx = std::sin(rx);
+        double cy = std::cos(ry);
+        double sy = std::sin(ry);
+        double cz = std::cos(rz);
+        double sz = std::sin(rz);
 
         const_cast<MatrixBase<Derived>&>(mx)
                    << cy*cz, cx*sz+sx*sy*cz, sx*sz-cx*sy*cz,
@@ -107,45 +103,54 @@ public:
         return ret;
     }
 
+#define block31 template block<3,1>
+#define block33 template block<3,3>
 
-
-    static void fillAsMotionCrossProductMx(const Column6d& v, Matrix66d& mx) {
-        fillAsCrossProductMatrix(v.block<3,1>(0,0), mx.block<3,3>(0,0));
-        mx.block<3,3>(0,3).setZero();
-        fillAsCrossProductMatrix(v.block<3,1>(3,0), mx.block<3,3>(3,0));
-        mx.block<3,3>(3,3) = mx.block<3,3>(0,0);
+    template <typename Scalar>
+    static void fillAsMotionCrossProductMx(const Vec6<Scalar>& v, Mat66<Scalar>& mx) {
+        fillAsCrossProductMatrix(v.block31(0,0), mx.block33(0,0));
+        mx.block33(0,3).setZero();
+        fillAsCrossProductMatrix(v.block31(3,0), mx.block33(3,0));
+        mx.block33(3,3) = mx.block33(0,0);
     }
-    static void fillAsForceCrossProductMx(const Column6d& v, Matrix66d& mx) {
-        fillAsCrossProductMatrix(v.block<3,1>(0,0), mx.block<3,3>(0,0));
-        fillAsCrossProductMatrix(v.block<3,1>(3,0), mx.block<3,3>(0,3));
-        mx.block<3,3>(3,0).setZero();
-        mx.block<3,3>(3,3) = mx.block<3,3>(0,0);
+    template <typename Scalar>
+    static void fillAsForceCrossProductMx(const Vec6<Scalar>& v, Mat66<Scalar>& mx) {
+        fillAsCrossProductMatrix(v.block31(0,0), mx.block33(0,0));
+        fillAsCrossProductMatrix(v.block31(3,0), mx.block33(0,3));
+        mx.block33(3,0).setZero();
+        mx.block33(3,3) = mx.block33(0,0);
     }
 
-    template <typename Derived>
-    static void fillAsCrossProductMatrix(const Vector3d& in, const MatrixBase<Derived>& mx) {
+    template <typename D1, typename D2>
+    static void fillAsCrossProductMatrix(const MatrixBase<D2>& in, const MatrixBase<D1>& mx)
+    {
         eigen_assert(mx.rows() == 3  &&  mx.cols() == 3);
-        const_cast<MatrixBase<Derived>&>(mx)
-            <<  0   , -in(2),  in(1),
-               in(2),   0   , -in(0),
-              -in(1),  in(0),   0;
+        typedef typename D2::Scalar Scalar;
+
+        const_cast< MatrixBase<D1>& >(mx)
+            <<  static_cast<Scalar>(0.0)   , -in(2),  in(1),
+               in(2),   static_cast<Scalar>(0.0)   , -in(0),
+              -in(1),  in(0),   static_cast<Scalar>(0.0);
     }
 
     template <typename Derived>
     static const MatrixBlock<const Derived,3,1> positionVector(const MatrixBase<Derived>& homT) {
         eigen_assert(homT.rows() == 4  &&  homT.cols() == 4); // weak way to check if it is a homogeneous transform
-        return homT.template block<3,1>(0,3);
+        return homT.block31(0,3);
     }
     template <typename Derived>
     static const MatrixBlock<const Derived,3,3> rotationMx(const MatrixBase<Derived>& homT) {
         eigen_assert(homT.rows() == 4  &&  homT.cols() == 4); // weak way to check if it is a homogeneous transform
-        return homT.template block<3,3>(0,0);
+        return homT.block33(0,0);
     }
     template <typename Derived>
     static const MatrixBlock<const Derived,3,1> zAxis(const MatrixBase<Derived>& homT) {
         eigen_assert(homT.rows() == 4  &&  homT.cols() == 4); // weak way to check if it is a homogeneous transform
-        return homT.template block<3,1>(0,2);
+        return homT.block31(0,2);
     }
+
+#undef block31
+#undef block33
 
     /**
      * Applies a roto-translation to the given 3D vector.
@@ -160,7 +165,7 @@ public:
      * \return the 3D vector that results from the rotation plus translation
      */
     template <typename Derived, typename Other>
-    static Vector3d transform(
+    static typename Core<typename Other::Scalar>::Vector3 transform(
             const MatrixBase<Derived>& homT,
             const MatrixBase<Other>& vect3d)
     {
