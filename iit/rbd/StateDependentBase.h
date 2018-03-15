@@ -10,7 +10,6 @@
 #ifndef _IIT_RBD__STATE_DEPENDENT_BASE_H_
 #define _IIT_RBD__STATE_DEPENDENT_BASE_H_
 
-#include <iostream>
 #include "rbd.h"
 
 namespace iit {
