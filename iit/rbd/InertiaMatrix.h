@@ -191,7 +191,7 @@ inline const InertiaMatrixDense::Block33_const InertiaMatrixDense::get3x3Tensor(
 inline void InertiaMatrixDense::changeMass(double newMass) {
     // Note the use of indices AX and hard-coded 0, to make it independent from
     //  the convention angular/linear
-    this->block<3,6>(AX,0) *= newMass/getMass();
+    this->template block<3,6>(AX,0) *= newMass/getMass();
     block33(LX,AX) = block33(AX,LX).transpose();
     data(LX,LX) = data(LY,LY) = data(LZ,LZ) = newMass;
 }
