@@ -179,6 +179,15 @@ inline void rot_EAET(
     B.ZY = yZX*E.YX + yZY*E.YY + EvX;
 }
 
+template<typename Derived, typename Derived2>
+inline Vec3<typename Derived::Scalar> cross(const MatrixBase<Derived>& r, const MatrixBase<Derived2>& v)
+{
+    return Vec3<typename Derived::Scalar>(
+            r(Y)*v(Z)-r(Z)*v(Y),
+            r(Z)*v(X)-r(X)*v(Z),
+            r(X)*v(Y)-r(Y)*v(X));
+}
+
 
 }
 }
