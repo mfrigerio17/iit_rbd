@@ -10,7 +10,7 @@
 #ifndef IIT_RBD_INTERNALS_
 #define IIT_RBD_INTERNALS_
 
-#include "InertiaMatrix.h"
+#include "rbd.h"
 
 namespace iit {
 namespace rbd {
