@@ -11,15 +11,10 @@ namespace iit {
 namespace rbd {
 
 
-template<class State, class ActualMatrix>
-class SpatialTransform : public StateDependentBase<State, ActualMatrix>
+template<typename Scalar>
+struct SpatialTransform
 {
-private:
-    typedef typename State::Scalar Scalar;
-
 public:
-    using StateDependentBase<State, ActualMatrix>::operator();
-
     template <typename Derived>
     void A_XM_B(const MatrixBase<Derived>& v_b, Vec6<Scalar>& v_a)
     {
@@ -47,7 +42,7 @@ public:
         linearPart(v_B) = a_R_b.transpose() * linearPart(v_A);
         angularPart(v_B)= a_R_b.transpose() * (internal::cross(-r_ab_A, linearPart(v_A)) + angularPart(v_A));
     }
-protected:
+
     Mat33<Scalar> a_R_b;
     Vec3 <Scalar> r_ab_A;
 };
