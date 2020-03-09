@@ -12,9 +12,8 @@ namespace rbd {
 
 
 template<typename Scalar>
-struct SpatialTransform
+struct CTransformCore
 {
-public:
     template <typename Derived>
     void A_XM_B(const MatrixBase<Derived>& v_b, Vec6<Scalar>& v_a) const
     {
@@ -50,13 +49,13 @@ public:
 
 #define STRUCT_DEFINING_OPERATOR_STAR(KEY)                                  \
     template<typename Scalar>                                               \
-    struct KEY : public SpatialTransform<Scalar>                            \
+    struct KEY : public CTransformCore<Scalar>                            \
     {                                                                       \
         template <typename Derived>                                         \
-        rbd::Vec6<double> operator*(const MatrixBase<Derived>& v_in) const  \
+        rbd::Vec6<Scalar> operator*(const MatrixBase<Derived>& v_in) const  \
         {                                                                   \
-            rbd::Vec6<double> v2;                                           \
-            SpatialTransform<Scalar>::KEY(v_in, v2);                        \
+            rbd::Vec6<Scalar> v2;                                           \
+            CTransformCore<Scalar>::KEY(v_in, v2);                        \
             return v2;                                                      \
         }                                                                   \
     };
@@ -66,6 +65,17 @@ STRUCT_DEFINING_OPERATOR_STAR(B_XM_A)
 STRUCT_DEFINING_OPERATOR_STAR(A_XF_B)
 STRUCT_DEFINING_OPERATOR_STAR(B_XF_A)
 
+
+template<typename STATE, typename Actual>
+struct TransformBase : public StateDependentBase<STATE, Actual>
+{
+    CTransformCore<typename STATE::Scalar> ct;
+
+    template<typename REPR>
+    inline const REPR& as() const {
+        return static_cast<const REPR&>( ct );
+    }
+};
 
 }
 }
