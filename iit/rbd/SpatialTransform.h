@@ -42,6 +42,18 @@ struct CTransformCore
         angularPart(v_B)= a_R_b.transpose() * (internal::cross(-r_ab_A, linearPart(v_A)) + angularPart(v_A));
     }
 
+    template <typename Derived>
+    void A_XH_B(const MatrixBase<Derived>& v_b, Vec3<Scalar>& v_a) const
+    {
+        v_a = a_R_b * v_b + r_ab_A;
+    }
+
+    template <typename Derived>
+    void B_XH_A(const MatrixBase<Derived>& v_a, Vec3<Scalar>& v_b) const
+    {
+        v_b = a_R_b.transpose() * (v_a - r_ab_A);
+    }
+
     Mat33<Scalar> a_R_b;
     Vec3 <Scalar> r_ab_A;
 };
@@ -64,6 +76,8 @@ STRUCT_DEFINING_OPERATOR_STAR(A_XM_B)
 STRUCT_DEFINING_OPERATOR_STAR(B_XM_A)
 STRUCT_DEFINING_OPERATOR_STAR(A_XF_B)
 STRUCT_DEFINING_OPERATOR_STAR(B_XF_A)
+STRUCT_DEFINING_OPERATOR_STAR(A_XH_B)
+STRUCT_DEFINING_OPERATOR_STAR(B_XH_A)
 
 
 template<typename STATE, typename Actual>
