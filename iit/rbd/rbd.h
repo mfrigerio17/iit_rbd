@@ -222,7 +222,7 @@ enum Coords6D { AX=0, AY, AZ, LX, LY, LZ };
  * This value should always be positive, so that an application
  * chooses the sign according to its conventions.
  */
-static const double g = 9.81;
+constexpr double g{9.80665};
 
 }
 }
