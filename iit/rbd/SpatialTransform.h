@@ -25,7 +25,8 @@ namespace rbd {
 //    }
 //};
 
-/** A compact type that can act as different representations of a coordinate transform.
+/** A compact type that can act as different representations of a coordinate
+ * transform.
  *
  * An instance contains the minimum amount of data to encode a coordinate
  * transform for homogeneous coordinates and spatial vectors (both motion and
@@ -37,8 +38,13 @@ namespace rbd {
 template<typename Scalar>
 struct CTransformCore
 {
-    typedef Vec6<Scalar> vector6;
-    //typedef Vec6Probe<Scalar> vector6; // use this to investigate about temporaries
+    using vector6 = Vec6<Scalar>;
+    //using vector6 = Vec6Probe<Scalar>; // use this to investigate about temporaries
+    using matrix4 = PlainMatrix<Scalar, 4, 4>;
+    using matrix6 = PlainMatrix<Scalar, 6, 6>;
+
+    CTransformCore() {}
+    explicit CTransformCore(int) : a_R_b(Mat33<Scalar>::Zero()), r_ab_A(0,0,0) {}
 
     template <typename Derived>
     vector6 A_XM_B(const MatrixBase<Derived>& v_b) const
@@ -88,8 +94,77 @@ struct CTransformCore
         return a_R_b.transpose() * (v_a - r_ab_A);
     }
 
+
+#define block31 template block<3,1>
+#define block33 template block<3,3>
+    // there might be better ways to do the following functions in Eigen
+    // (e.g. with nullary expressions), but for now I don't care
+
+    matrix6 A_XM_B_matrix() const
+    {
+        matrix6 ret;
+        ret.block33(AX,AX) = ret.block33(LX,LX) = a_R_b;
+        ret.block33(LX,AX) = rx() * a_R_b;
+        ret.block33(AX,LX).setZero();
+        return ret;
+    }
+    matrix6 B_XM_A_matrix() const
+    {
+        matrix6 ret;
+        ret.block33(AX,AX) = ret.block33(LX,LX) = a_R_b.transpose();
+        ret.block33(LX,AX) = a_R_b.transpose() * rx().transpose();
+        ret.block33(AX,LX).setZero();
+        return ret;
+    }
+
+    matrix6 A_XF_B_matrix() const
+    {
+        matrix6 ret;
+        ret.block33(AX,AX) = ret.block33(LX,LX) = a_R_b;
+        ret.block33(AX,LX) = rx() * a_R_b;
+        ret.block33(LX,AX).setZero();
+        return ret;
+    }
+    matrix6 B_XF_A_matrix() const
+    {
+        matrix6 ret;
+        ret.block33(AX,AX) = ret.block33(LX,LX) = a_R_b.transpose();
+        ret.block33(AX,LX) = a_R_b.transpose() * rx().transpose();
+        ret.block33(LX,AX).setZero();
+        return ret;
+    }
+
+    matrix4 A_XH_B_matrix() const
+    {
+        matrix4 ret;
+        ret.block33(0,0) = a_R_b;
+        ret.block31(0,3) = r_ab_A;
+        ret.row(3) << 0,0,0,1;
+        return ret;
+    }
+    matrix4 B_XH_A_matrix() const
+    {
+        matrix4 ret;
+        ret.block33(0,0) = a_R_b.transpose();
+        ret.block31(0,3) = - a_R_b.transpose() * r_ab_A;
+        ret.row(3) << 0,0,0,1;
+        return ret;
+    }
+
+#undef block31
+#undef block33
+
     Mat33<Scalar> a_R_b;
     Vec3 <Scalar> r_ab_A;
+
+private:
+    Mat33<Scalar> rx() const {
+        Mat33<Scalar> ret;
+        ret <<  0        , -r_ab_A(Z),  r_ab_A(Y),
+                r_ab_A(Z),   0       , -r_ab_A(X),
+               -r_ab_A(Y),  r_ab_A(X),   0;
+        return ret;
+    }
 };
 
 
@@ -111,9 +186,13 @@ struct CTransformCore
     {                                                                       \
         template <typename Derived>                                         \
         auto operator*(const MatrixBase<Derived>& v_in) const -> decltype(CTransformCore<Scalar>::KEY(v_in)) \
-        {                                                                   \
-            return CTransformCore<Scalar>::KEY(v_in);                   \
-        }                                                                   \
+        {                                                                     \
+            return CTransformCore<Scalar>::KEY(v_in);                         \
+        }                                                                     \
+        auto matrix() const -> decltype(CTransformCore<Scalar>::KEY ## _matrix()) \
+        {                                                                     \
+            return CTransformCore<Scalar>::KEY ## _matrix();                  \
+        }                                                                     \
     };
 
 // The 'decltype' above make sure to use the same return type as the actual
@@ -132,10 +211,13 @@ STRUCT_DEFINING_OPERATOR_STAR(B_XH_A)
 template<typename STATE, typename Actual>
 struct TransformBase : public StateDependentBase<STATE, Actual>
 {
+    TransformBase() {}
+    explicit TransformBase(int foo) : ct(foo) {}
+
     CTransformCore<typename STATE::Scalar> ct;
 
     template<typename REPR>
-    inline const REPR& as() const {
+    const REPR& as() const {
         return static_cast<const REPR&>( ct );
     }
 };
