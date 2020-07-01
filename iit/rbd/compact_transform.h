@@ -44,14 +44,14 @@ struct CTransformCore
     using matrix6 = PlainMatrix<Scalar, 6, 6>;
 
     CTransformCore() {}
-    explicit CTransformCore(int) : a_R_b(Mat33<Scalar>::Zero()), r_ab_A(0,0,0) {}
+    explicit CTransformCore(int) : a_R_b(Mat33<Scalar>::Zero()), r_ab_a(0,0,0) {}
 
     template <typename Derived>
     vector6 A_XM_B(const MatrixBase<Derived>& v_b) const
     {
         vector6 v_a;
         angularPart(v_a) = a_R_b * angularPart(v_b);
-        linearPart(v_a)  = internal::cross(r_ab_A, angularPart(v_a)) + a_R_b *linearPart(v_b);
+        linearPart(v_a)  = internal::cross(r_ab_a, angularPart(v_a)) + a_R_b *linearPart(v_b);
         return v_a;
     }
 
@@ -60,7 +60,7 @@ struct CTransformCore
     {
         vector6 v_b;
         angularPart(v_b) = a_R_b.transpose() * angularPart(v_a);
-        linearPart(v_b)  = a_R_b.transpose() * (internal::cross(-r_ab_A, angularPart(v_a)) + linearPart(v_a));
+        linearPart(v_b)  = a_R_b.transpose() * (internal::cross(-r_ab_a, angularPart(v_a)) + linearPart(v_a));
         return v_b;
     }
 
@@ -69,7 +69,7 @@ struct CTransformCore
     {
         vector6 v_A;
         linearPart(v_A) = a_R_b * linearPart(v_B);
-        angularPart(v_A)=  internal::cross(r_ab_A, linearPart(v_A)) + a_R_b * angularPart(v_B);
+        angularPart(v_A)=  internal::cross(r_ab_a, linearPart(v_A)) + a_R_b * angularPart(v_B);
         return v_A;
     }
 
@@ -78,20 +78,20 @@ struct CTransformCore
     {
         vector6 v_B;
         linearPart(v_B) = a_R_b.transpose() * linearPart(v_A);
-        angularPart(v_B)= a_R_b.transpose() * (internal::cross(-r_ab_A, linearPart(v_A)) + angularPart(v_A));
+        angularPart(v_B)= a_R_b.transpose() * (internal::cross(-r_ab_a, linearPart(v_A)) + angularPart(v_A));
         return v_B;
     }
 
     template <typename Derived>
     Vec3<Scalar> A_XH_B(const MatrixBase<Derived>& v_b) const
     {
-        return a_R_b * v_b + r_ab_A;
+        return a_R_b * v_b + r_ab_a;
     }
 
     template <typename Derived>
     Vec3<Scalar> B_XH_A(const MatrixBase<Derived>& v_a) const
     {
-        return a_R_b.transpose() * (v_a - r_ab_A);
+        return a_R_b.transpose() * (v_a - r_ab_a);
     }
 
 
@@ -138,7 +138,7 @@ struct CTransformCore
     {
         matrix4 ret;
         ret.block33(0,0) = a_R_b;
-        ret.block31(0,3) = r_ab_A;
+        ret.block31(0,3) = r_ab_a;
         ret.row(3) << 0,0,0,1;
         return ret;
     }
@@ -146,7 +146,7 @@ struct CTransformCore
     {
         matrix4 ret;
         ret.block33(0,0) = a_R_b.transpose();
-        ret.block31(0,3) = - a_R_b.transpose() * r_ab_A;
+        ret.block31(0,3) = - a_R_b.transpose() * r_ab_a;
         ret.row(3) << 0,0,0,1;
         return ret;
     }
@@ -154,15 +154,19 @@ struct CTransformCore
 #undef block31
 #undef block33
 
+    /** The rotation matrix from 'b' to 'a' coordinates **/
     Mat33<Scalar> a_R_b;
-    Vec3 <Scalar> r_ab_A;
+
+    /** The position vector from the origin of 'a' to the origin of 'b', in
+        'a' coordinates **/
+    Vec3 <Scalar> r_ab_a;
 
 private:
     Mat33<Scalar> rx() const {
         Mat33<Scalar> ret;
-        ret <<  0        , -r_ab_A(Z),  r_ab_A(Y),
-                r_ab_A(Z),   0       , -r_ab_A(X),
-               -r_ab_A(Y),  r_ab_A(X),   0;
+        ret <<  0        , -r_ab_a(Z),  r_ab_a(Y),
+                r_ab_a(Z),   0       , -r_ab_a(X),
+               -r_ab_a(Y),  r_ab_a(X),   0;
         return ret;
     }
 };
