@@ -186,16 +186,17 @@ private:
 
 #define STRUCT_DEFINING_OPERATOR_STAR(KEY)                         \
     template<typename Scalar>                                               \
-    struct KEY : public CTransformCore<Scalar>                              \
+    struct KEY                              \
     {                                                                       \
+        const CTransformCore<Scalar>& data;\
         template <typename Derived>                                         \
-        auto operator*(const MatrixBase<Derived>& v_in) const -> decltype(CTransformCore<Scalar>::KEY(v_in)) \
+        auto operator*(const MatrixBase<Derived>& v_in) const -> decltype( std::declval< CTransformCore<Scalar> >().KEY(v_in) ) \
         {                                                                     \
-            return CTransformCore<Scalar>::KEY(v_in);                         \
+            return data.KEY(v_in);                         \
         }                                                                     \
-        auto matrix() const -> decltype(CTransformCore<Scalar>::KEY ## _matrix()) \
+        auto matrix() const -> decltype(std::declval< CTransformCore<Scalar> >().KEY ## _matrix() ) \
         {                                                                     \
-            return CTransformCore<Scalar>::KEY ## _matrix();                  \
+            return data.KEY ## _matrix();                  \
         }                                                                     \
     };
 
@@ -221,8 +222,8 @@ struct TransformBase : public StateDependentBase<STATE, Actual>
     CTransformCore<typename STATE::Scalar> ct;
 
     template<typename REPR>
-    const REPR& as() const {
-        return static_cast<const REPR&>( ct );
+    REPR as() const {
+        return REPR{ct};
     }
 };
 
