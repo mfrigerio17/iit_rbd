@@ -3,9 +3,11 @@
 
 
 #include <cppad/cppad.hpp>
+#include <cppad/example/cppad_eigen.hpp> // for the Eigen traits
 
 #include "../../rbd/rbd.h"
 #include "../../rbd/scalar_traits.h"
+#include "../../robcogen/macros.h"
 
 
 namespace iit {
@@ -48,7 +50,11 @@ typedef ScalarTraits< cppad::Double > CppADDoubleTraits;
 typedef ScalarTraits< cppad::Float  > CppADFloatTraits;
 
 
+
+
+
 } // namespace robcogen
+
 
 namespace rbd {
 
@@ -60,14 +66,20 @@ template<> struct ScalarTraits<robcogen::cppad::Double>: public robcogen::CppADD
 } // namespace iit
 
 
-
-
 namespace Eigen {
 
-template<> struct NumTraits<iit::robcogen::cppad::Float>  : NumTraits<float> {};
-template<> struct NumTraits<iit::robcogen::cppad::Double> : NumTraits<double> {};
+// See here: https://stackoverflow.com/q/65019299
+template<typename Derived>
+iit::robcogen::cppad::Double
+operator+(const iit::rbd::MatrixBase<Derived>& lhs, const iit::robcogen::cppad::Double& rhs) {
+    iit_rbd_matrix_specific_size(iit::rbd::MatrixBase<Derived>,1,1)
+    return lhs.derived().coeff(0, 0) + rhs;
+}
 
 }
+
+
+
 
 #endif
 
