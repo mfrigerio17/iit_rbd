@@ -2,7 +2,7 @@
 #define IIT_RBD_COMPACT_TRANSFORM_H_
 
 #include <iit/rbd/rbd.h>
-#include <iit/rbd/StateDependentMatrix.h>
+#include <iit/rbd/StateDependentBase.h>
 #include <iit/rbd/internals.h>
 //#include <iostream>
 
