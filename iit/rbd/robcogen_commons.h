@@ -15,6 +15,7 @@
 #include "InertiaMatrix.h"
 #include "TransformsBase.h"
 #include "internals.h"
+#include "compact_transform.h"
 
 
 namespace iit {
@@ -291,15 +292,55 @@ void transformInertia(
 #define block33 template block<3,3>
 
 /**
- * \name Articulated inertia - Coordinate transform
+ * \name Articulated inertia
  *
- * These functions perform the coordinate transform of a spatial articulated
- * inertia, in the special case of a mass-less handle (see chapter 7 of the RBDA
- * book, §7.2.2, equation 7.23)
+ * Functions to compute and do the coordinate transform of articulated inertia
+ * propagated across a joint. See chapter 7 of the RBDA book, §7.2.2, equation
+ * (7.23).
  *
  * Two specialized functions are available for the two cases of revolute and
  * prismatic joint (which connects the subtree with the mass-less handle), since
  * the inertia exhibits two different sparsity patterns.
+ *
+ * Structure of the matrix for a prismatic joint:
+ *\code
+ *  [ia1,  ia2,  ia3, |  ia4,  ia5,   0  ]
+ *  [ia2,  ia6,  ia7, |  ia8,  ia9,   0  ]
+ *  [ia3,  ia7,  ia10,|  ia11, ia12,  0  ]     [  I   |  C  ]
+ *   -----------------|-----------------    =  | -----|---- |
+ *  [ia4,  ia8,  ia11,| ia13, ia14,   0  ]     [  C^T |  M  ]
+ *  [ia5,  ia9,  ia12,| ia14, ia15,   0  ]
+ *  [0  ,    0,    0, |  0,     0,    0  ]
+ *\endcode
+ *
+ * Structure of the matrix for a revolute joint:
+ *\code
+ * [ia1,  ia2,  0, | ia4,  ia5,  ia6 ]
+ * [ia2,  ia7,  0, | ia8,  ia9,  ia10]    [  I   |  C  ]
+ * [0  ,    0,  0, |   0,    0,    0 ]  = | -----|-----|
+ * [-------------- | --------------- ]    [  C^T |  M  ]
+ * [ia4,  ia8,  0, | ia11, ia12, ia13]
+ * [ia5,  ia9,  0, | ia12, ia14, ia15]
+ * [ia6, ia10,  0, | ia13, ia15, ia16]
+ *\endcode
+ */
+///@{
+/** \ingroup robcogen_commons
+ * Coordinate transform of a spatial articulated inertia propagated across the
+ * joint.
+ *
+ * The implementation can be derived by expanding the symbolic expression of
+ * the coordinate transformation, which is `XM^T * Ia * XM`, _using block-matrix
+ * expressions_. Express the coordinate transform `XM` in terms of the rotation
+ * matrix `R` and the translation vector `r`.
+ * Expand the product and then note the common factors `R` and `R^T` which can
+ * be collected at the right and left of the expressions.
+ *
+ * That will highlight the common factors that I compute in this implementation,
+ * which include:
+ *      `I +  rx.T * C.T  +  C * rx`
+ *      `C + rx.T * M = C - rx * M`
+ * and a bunch of `R.T (...) R`.
  *
  * \param Ia_A the articulated inertia in A coordinates
  * \param XM a spatial coordinate transform for motion vectors, in the form \c A_XM_B
@@ -308,8 +349,6 @@ void transformInertia(
  *       coordinates. Note that the constness is casted away (trick required
  *       with Eigen)
  */
-///@{
-/** \ingroup robcogen_commons */
 template <typename D1, typename D2, typename D3>
 void ctransform_Ia_revolute(
         const MatrixBase<D1>& Ia_A,
@@ -336,15 +375,6 @@ void ctransform_Ia_revolute(
     internal::SymmMat3x3Coefficients<Scalar> aux1, aux2;
 
     // ## compute  I + (Crx + Crx^T)  :
-
-    // Remember that, for a revolute joint, the structure of the matrix is as
-    //  follows (note the zeros):
-    //    [ia1,  ia2,  0, ia4,  ia5,  ia6 ]
-    //    [ia2,  ia7,  0, ia8,  ia9,  ia10]
-    //    [0  ,    0,  0,   0,    0,    0 ]
-    //    [ia4,  ia8,  0, ia11, ia12, ia13]
-    //    [ia5,  ia9,  0, ia12, ia14, ia15]
-    //    [ia6, ia10,  0, ia13, ia15, ia16]
 
     // copying the coefficients results in slightly fewer invocations of the
     //  operator(int,int), in the rest of the function
@@ -562,19 +592,234 @@ void ctransform_Ia_prismatic(
     Ia_B(LZ,LY) = Ia_B(LY,LZ) = aux1.YZ;
     //aux1.write(Ia_B.block33(LX,LX)); // this is be equivalent, but it uses a block expression
 }
-///@}
+
+/** \ingroup robcogen_commons */
+template <typename D1, typename D2>
+void ctransform_Ia_revolute(
+        const MatrixBase<D1>& Ia_child,
+        const CTransformCore<typename D1::Scalar>& child_ct_parent,
+        const MatrixBase<D2>& Ia_parent_const)
+{
+    using Scalar = typename D1::Scalar; // we assume D1 D2 use the same scalar type!
+    MatrixBase<D2>& Ia_parent = const_cast<MatrixBase<D2>&>(Ia_parent_const);
+
+    // The translation vector from child origin to parent origin, in child coordinates
+    Scalar rx = child_ct_parent.r_ab_a(X);
+    Scalar ry = child_ct_parent.r_ab_a(Y);
+    Scalar rz = child_ct_parent.r_ab_a(Z);
+
+    // copying the coefficients results in slightly fewer invocations of the
+    //  operator(int,int), in the rest of the function
+    const internal::Mat3x3Coefficients<Scalar> C(
+            Ia_child(AX,LX), Ia_child(AX,LY), Ia_child(AX,LZ),
+            Ia_child(AY,LX), Ia_child(AY,LY), Ia_child(AY,LZ),
+            Scalar(0),       Scalar(0),       Scalar(0));
+
+    const internal::SymmMat3x3Coefficients<Scalar> M(
+            Ia_child(LX,LX), Ia_child(LX,LY), Ia_child(LX,LZ)
+                           , Ia_child(LY,LY), Ia_child(LY,LZ)
+                                            , Ia_child(LZ,LZ));
+
+    // Angular-angular 3x3 sub-block:
+
+    internal::SymmMat3x3Coefficients<Scalar> aux1, aux2;
+
+    // compute (I +  rx.T * C.T  +  C * rx)
+
+    aux1.XX = Ia_child(AX,AX) + 2*C.XY*rz - 2*C.XZ*ry;
+    aux1.YY = Ia_child(AY,AY) + 2*C.YZ*rx - 2*C.YX*rz;
+    //aux1.ZZ = Scalar(0);
+    aux1.XY = Ia_child(AX,AY) + C.YY*rz - C.XX*rz - C.YZ*ry + C.XZ*rx;
+    aux1.XZ = C.XX*ry - C.XY*rx;
+    aux1.YZ = C.YX*ry - C.YY*rx;
+
+    // compute (- rx M)  (note the minus)
+
+    internal::Mat3x3Coefficients<Scalar> rxM;
+    rxM.XX = rz*M.XY - ry*M.XZ;
+    rxM.YY = rx*M.YZ - rz*M.XY;
+    rxM.ZZ = ry*M.XZ - rx*M.YZ;
+    rxM.XY = rz*M.YY - ry*M.YZ;
+    rxM.YX = rx*M.XZ - rz*M.XX;
+    rxM.XZ = rz*M.YZ - ry*M.ZZ;
+    rxM.ZX = ry*M.XX - rx*M.XY;
+    rxM.YZ = rx*M.ZZ - rz*M.XZ;
+    rxM.ZY = ry*M.XY - rx*M.YY;
+
+    // compute  [ (I + (Crx + Crx^T))  -  (rx M rx)  ]
+    // that is  [         aux1         +  rxM * rx   ]
+    aux1.XX += rxM.XY*rz - rxM.XZ*ry;
+    aux1.YY += rxM.YZ*rx - rxM.YX*rz;
+    aux1.ZZ  = rxM.ZX*ry - rxM.ZY*rx; // note no '+=' //not an error; see above, ZZ is zero
+    aux1.XY += rxM.XZ*rx - rxM.XX*rz;
+    aux1.XZ += rxM.XX*ry - rxM.XY*rx;
+    aux1.YZ += rxM.YX*ry - rxM.YY*rx;
+
+    // The coefficients of the 3x3 rotation matrix `parent_E_child`
+    internal::Mat3x3Coefficients<Scalar> E( child_ct_parent.a_R_b.transpose() );
+
+    // compute  R^T ( .. ) R
+    internal::rot_symmetric_EAET<Scalar>(E, aux1, aux2);
+
+    // Copy the result, angular-angular block of the output
+    Ia_parent(AX,AX) = aux2.XX;
+    Ia_parent(AY,AY) = aux2.YY;
+    Ia_parent(AZ,AZ) = aux2.ZZ;
+    Ia_parent(AY,AX) = Ia_parent(AX,AY) = aux2.XY;
+    Ia_parent(AZ,AX) = Ia_parent(AX,AZ) = aux2.XZ;
+    Ia_parent(AZ,AY) = Ia_parent(AY,AZ) = aux2.YZ;
+    // aux2.write(Ia_B.block33(AX,AX)); // this is be equivalent, but it uses a block expression
+
+
+    // Angular-linear block (and linear-angular block)
+    // Calculate E ( C -rxM ) E^T
+    //  - note that `rxM` already contains the coefficients of  (- rx * M)
+    //  - for a revolute joint, the last line of C is zero
+    rxM.XX += C.XX;
+    rxM.XY += C.XY;
+    rxM.XZ += C.XZ;
+    rxM.YX += C.YX;
+    rxM.YY += C.YY;
+    rxM.YZ += C.YZ;
+
+    internal::Mat3x3Coefficients<Scalar> aux3;
+    internal::rot_EAET<Scalar>(E, rxM, aux3);
+    // copy the result, also to the symmetric 3x3 block
+    Ia_parent(LX,AX) = Ia_parent(AX,LX) = aux3.XX;
+    Ia_parent(LY,AX) = Ia_parent(AX,LY) = aux3.XY;
+    Ia_parent(LZ,AX) = Ia_parent(AX,LZ) = aux3.XZ;
+    Ia_parent(LX,AY) = Ia_parent(AY,LX) = aux3.YX;
+    Ia_parent(LY,AY) = Ia_parent(AY,LY) = aux3.YY;
+    Ia_parent(LZ,AY) = Ia_parent(AY,LZ) = aux3.YZ;
+    Ia_parent(LX,AZ) = Ia_parent(AZ,LX) = aux3.ZX;
+    Ia_parent(LY,AZ) = Ia_parent(AZ,LY) = aux3.ZY;
+    Ia_parent(LZ,AZ) = Ia_parent(AZ,LZ) = aux3.ZZ;
+
+    // Linear-linear block
+    internal::rot_symmetric_EAET<Scalar>(E, M, aux1);
+    Ia_parent(LX,LX) = aux1.XX;
+    Ia_parent(LY,LY) = aux1.YY;
+    Ia_parent(LZ,LZ) = aux1.ZZ;
+    Ia_parent(LY,LX) = Ia_parent(LX,LY) = aux1.XY;
+    Ia_parent(LZ,LX) = Ia_parent(LX,LZ) = aux1.XZ;
+    Ia_parent(LZ,LY) = Ia_parent(LY,LZ) = aux1.YZ;
+    //aux1.write(Ia_B.block33(LX,LX)); // this is be equivalent, but it uses a block expression
+}
+
+/** \ingroup robcogen_commons */
+template <typename D1, typename D2>
+void ctransform_Ia_prismatic(
+        const MatrixBase<D1>& Ia_child,
+        const CTransformCore<typename D1::Scalar>& child_ct_parent,
+        const MatrixBase<D2>& Ia_parent_const)
+{
+    using Scalar = typename D1::Scalar; // we assume D1 D2 use the same scalar type!
+    MatrixBase<D2>& Ia_parent = const_cast<MatrixBase<D2>&>(Ia_parent_const);
+
+    // The translation vector from child origin to parent origin, in child coordinates
+    Scalar rx = child_ct_parent.r_ab_a(X);
+    Scalar ry = child_ct_parent.r_ab_a(Y);
+    Scalar rz = child_ct_parent.r_ab_a(Z);
+
+    // Angular-angular 3x3 sub-block:
+
+    internal::SymmMat3x3Coefficients<Scalar> aux1, aux2;
+
+    // copying the coefficients results in slightly fewer invocations of the
+    //  operator(int,int), in the rest of the function
+    const internal::Mat3x3Coefficients<Scalar> C(
+            Ia_child(AX,LX), Ia_child(AX,LY), 0,
+            Ia_child(AY,LX), Ia_child(AY,LY), 0,
+            Ia_child(AZ,LX), Ia_child(AZ,LY), 0);
+    const internal::SymmMat3x3Coefficients<Scalar> M(
+            Ia_child(LX,LX), Ia_child(LX,LY), 0
+                           , Ia_child(LY,LY), 0
+                                            , 0);
+    // compute  (I + (Crx + Crx^T))
+    aux1.XX = Ia_child(AX,AX) + 2*C.XY*rz;
+    aux1.YY = Ia_child(AY,AY) - 2*C.YX*rz;
+    aux1.ZZ = Ia_child(AZ,AZ) + 2*C.ZX*ry - 2*C.ZY*rx;
+    aux1.XY = Ia_child(AX,AY) + (C.YY - C.XX)*rz;
+    aux1.XZ = Ia_child(AX,AZ) + C.ZY*rz + C.XX*ry - C.XY*rx;
+    aux1.YZ = Ia_child(AY,AZ) - C.ZX*rz + C.YX*ry - C.YY*rx;
+
+    // compute the term (- rx M)  (note the minus)
+    internal::Mat3x3Coefficients<Scalar> rxM;
+    rxM.XX = rz*M.XY;
+    rxM.XY = rz*M.YY;
+    rxM.YX = - rz*M.XX;
+    rxM.YY = - rz*M.XY;
+    rxM.ZX = ry*M.XX - rx*M.XY;
+    rxM.ZY = ry*M.XY - rx*M.YY;
+    rxM.XZ = 0.0;
+    rxM.YZ = 0.0;
+    rxM.ZZ = 0.0;
+
+    // compute  [(I + (Crx + Crx^T))  -  (rxM) rx ]
+    aux1.XX += rxM.XY*rz;
+    aux1.YY += - rxM.YX*rz;
+    aux1.ZZ += rxM.ZX*ry - rxM.ZY*rx;
+    aux1.XY += - rxM.XX*rz;
+    aux1.XZ += rxM.XX*ry - rxM.XY*rx;
+    aux1.YZ += rxM.YX*ry - rxM.YY*rx;
+
+    // The coefficients of the 3x3 rotation matrix `parent_E_child`
+    internal::Mat3x3Coefficients<Scalar> E( child_ct_parent.a_R_b.transpose() );
+
+    // compute  R^T ( I + Crx + (Crx)^T - rx M rx ) R
+    internal::rot_symmetric_EAET<Scalar>(E, aux1, aux2);
+
+    // Copy the result, angular-angular block of the output
+    Ia_parent(AX,AX) = aux2.XX;
+    Ia_parent(AY,AY) = aux2.YY;
+    Ia_parent(AZ,AZ) = aux2.ZZ;
+    Ia_parent(AY,AX) = Ia_parent(AX,AY) = aux2.XY;
+    Ia_parent(AZ,AX) = Ia_parent(AX,AZ) = aux2.XZ;
+    Ia_parent(AZ,AY) = Ia_parent(AY,AZ) = aux2.YZ;
+    // aux2.write(Ia_B.block33(AX,AX)); // this is be equivalent, but it uses a block expression
+
+    // Angular-linear block (and linear-angular block)
+    // Calculate R^T ( C -rxM ) R
+    //  - note that 'rxM' already contains the coefficients of  (- rx * M)
+    //  - for a prismatic joint, the last column of C is zero
+    rxM.XX += C.XX;
+    rxM.XY += C.XY;
+    //rxM.XZ stays zero
+    rxM.YX += C.YX;
+    rxM.YY += C.YY;
+    //rxM.YZ stays zero
+    rxM.ZX += C.ZX;
+    rxM.ZY += C.ZY;
+
+    internal::Mat3x3Coefficients<Scalar> aux3;
+    internal::rot_EAET<Scalar>(E, rxM, aux3); // TODO exploit the zeros in rxM
+    // copy the result, also to the symmetric 3x3 block
+    Ia_parent(LX,AX) = Ia_parent(AX,LX) = aux3.XX;
+    Ia_parent(LY,AX) = Ia_parent(AX,LY) = aux3.XY;
+    Ia_parent(LZ,AX) = Ia_parent(AX,LZ) = aux3.XZ;
+    Ia_parent(LX,AY) = Ia_parent(AY,LX) = aux3.YX;
+    Ia_parent(LY,AY) = Ia_parent(AY,LY) = aux3.YY;
+    Ia_parent(LZ,AY) = Ia_parent(AY,LZ) = aux3.YZ;
+    Ia_parent(LX,AZ) = Ia_parent(AZ,LX) = aux3.ZX;
+    Ia_parent(LY,AZ) = Ia_parent(AZ,LY) = aux3.ZY;
+    Ia_parent(LZ,AZ) = Ia_parent(AZ,LZ) = aux3.ZZ;
+
+    // Linear-linear block
+    internal::rot_symmetric_EAET<Scalar>(E, M, aux1); // TODO exploit the zeros in M
+    Ia_parent(LX,LX) = aux1.XX;
+    Ia_parent(LY,LY) = aux1.YY;
+    Ia_parent(LZ,LZ) = aux1.ZZ;
+    Ia_parent(LY,LX) = Ia_parent(LX,LY) = aux1.XY;
+    Ia_parent(LZ,LX) = Ia_parent(LX,LZ) = aux1.XZ;
+    Ia_parent(LZ,LY) = Ia_parent(LY,LZ) = aux1.YZ;
+    //aux1.write(Ia_B.block33(LX,LX)); // this is be equivalent, but it uses a block expression
+}
+
 #undef block33
 
-/**
- * \name Articulated inertia - Computation
- *
- * These functions calculate the spatial articulated inertia of a subtree, in
- * the special case of a mass-less handle (see chapter 7 of the RBDA
- * book, §7.2.2, equation 7.23)
- *
- * Two specialized functions are available for the two cases of revolute and
- * prismatic joint (which connects the subtree with the mass-less handle), since
- * the inertia exhibits two different sparsity patterns.
+/** \ingroup robcogen_commons
+ * Propagate an articulated inertia across the joint supporting the handle of
+ * the articulated mechanism.
  *
  * \param IA the regular articulated inertia of some subtree
  * \param U the U term for the current joint (cfr. eq. 7.43 of RBDA)
@@ -587,9 +832,7 @@ void ctransform_Ia_prismatic(
  *       Note that the constness of the argument is
  *       casted away (trick required with Eigen), as this is an output
  *       argument.
- */
-///@{
-/** \ingroup robcogen_commons */
+*/
 template <typename D1, typename D2>
 void compute_Ia_revolute(
         const MatrixBase<D1>& IA,
@@ -678,6 +921,101 @@ void compute_Ia_prismatic(
     //Ia(LY,LZ) = Ia(LZ,LY) = 0; // it is assumed to be set already
 
     //Ia(LZ,LZ) = 0; // it is assumed to be set already
+}
+
+/** \ingroup robcogen_commons */
+template <typename D1, typename D2>
+void propagate_IA_across_prismatic_joint(
+        const MatrixBase<D1>& IA,
+        const MatrixBase<D2>& Ia_const)
+{
+    using Scalar = typename D1::Scalar; // we assume D1 D2 use the same scalar type!
+    auto& Ia = const_cast<MatrixBase<D2>&>(Ia_const);
+    Scalar U_AX = IA(AX,LZ);
+    Scalar U_AY = IA(AY,LZ);
+    Scalar U_AZ = IA(AZ,LZ);
+    Scalar U_LX = IA(LX,LZ);
+    Scalar U_LY = IA(LY,LZ);
+    Scalar D    = IA(LZ,LZ);
+
+    Scalar UD_AY = U_AY / D;
+    Scalar UD_AZ = U_AZ / D;
+    Scalar UD_LX = U_LX / D;
+    Scalar UD_LY = U_LY / D;
+    //Scalar UD_LZ = 1; //it is (U_LZ / D);
+
+    Ia(AX,AX) =             IA(AX,AX) - U_AX * U_AX / D;
+    Ia(AX,AY) = Ia(AY,AX) = IA(AX,AY) - U_AX*UD_AY;
+    Ia(AX,AZ) = Ia(AZ,AX) = IA(AX,AZ) - U_AX*UD_AZ;
+    Ia(AX,LX) = Ia(LX,AX) = IA(AX,LX) - U_AX*UD_LX;
+    Ia(AX,LY) = Ia(LY,AX) = IA(AX,LY) - U_AX*UD_LY;
+    //Ia(AX,LZ) = Ia(LZ,AX) = 0; // it is assumed to be set already
+
+    Ia(AY,AY) =             IA(AY,AY) - U_AY*UD_AY;
+    Ia(AY,AZ) = Ia(AZ,AY) = IA(AY,AZ) - U_AY*UD_AZ;
+    Ia(AY,LX) = Ia(LX,AY) = IA(AY,LX) - U_AY*UD_LX;
+    Ia(AY,LY) = Ia(LY,AY) = IA(AY,LY) - U_AY*UD_LY;
+    //Ia(AY,LZ) = Ia(LZ,AY) = 0; // it is assumed to be set already
+
+    Ia(AZ,AZ) =             IA(AZ,AZ) - U_AZ*UD_AZ;
+    Ia(AZ,LX) = Ia(LX,AZ) = IA(AZ,LX) - U_AZ*UD_LX;
+    Ia(AZ,LY) = Ia(LY,AZ) = IA(AZ,LY) - U_AZ*UD_LY;
+    //Ia(AZ,LZ) = Ia(LZ,AZ) = 0; // it is assumed to be set already
+
+    Ia(LX,LX) =             IA(LX,LX) - U_LX*UD_LX;
+    Ia(LX,LY) = Ia(LY,LX) = IA(LX,LY) - U_LX*UD_LY;
+    //Ia(LX,LZ) = Ia(LZ,LX) = 0; // it is assumed to be set already
+
+    Ia(LY,LY) = IA(LY,LY) - U_LY*UD_LY;
+    //Ia(LY,LZ) = Ia(LZ,LY) = 0; // it is assumed to be set already
+
+    //Ia(LZ,LZ) = 0; // it is assumed to be set already
+}
+
+/** \ingroup robcogen_commons */
+template <typename D1, typename D2>
+void propagate_IA_across_revolute_joint(
+        const MatrixBase<D1>& IA,
+        const MatrixBase<D2>& Ia_const)
+{
+    using Scalar = typename D1::Scalar; // we assume D1 D2 use the same scalar type!
+    auto& Ia = const_cast<MatrixBase<D2>&>(Ia_const);
+    Scalar U_AX = IA(AX,AZ);
+    Scalar U_AY = IA(AY,AZ);
+    Scalar D    = IA(AZ,AZ);
+    Scalar U_LX = IA(LX,AZ);
+    Scalar U_LY = IA(LY,AZ);
+    Scalar U_LZ = IA(LZ,AZ);
+
+    Scalar UD_AY = U_AY / D;
+    //Scalar UD_AZ = 1; //it is (U_AZ / D);
+    Scalar UD_LX = U_LX / D;
+    Scalar UD_LY = U_LY / D;
+    Scalar UD_LZ = U_LZ / D;
+
+    Ia(AX,AX) =             IA(AX,AX) - U_AX * U_AX / D;
+    Ia(AX,AY) = Ia(AY,AX) = IA(AX,AY) - U_AX*UD_AY;
+    //Ia(AX,AZ) = Ia(AZ,AX) = 0; // it is assumed to be set already
+    Ia(AX,LX) = Ia(LX,AX) = IA(AX,LX) - U_AX*UD_LX;
+    Ia(AX,LY) = Ia(LY,AX) = IA(AX,LY) - U_AX*UD_LY;
+    Ia(AX,LZ) = Ia(LZ,AX) = IA(AX,LZ) - U_AX*UD_LZ;
+
+    Ia(AY,AY) =             IA(AY,AY) - U_AY*UD_AY;
+    //Ia(AY,AZ) = Ia(AZ,AY) = 0; // it is assumed to be set already
+    Ia(AY,LX) = Ia(LX,AY) = IA(AY,LX) - U_AY*UD_LX;
+    Ia(AY,LY) = Ia(LY,AY) = IA(AY,LY) - U_AY*UD_LY;
+    Ia(AY,LZ) = Ia(LZ,AY) = IA(AY,LZ) - U_AY*UD_LZ;
+
+    //The whole row AZ it is assumed to be already set to zero
+
+    Ia(LX,LX) =             IA(LX,LX) - U_LX*UD_LX;
+    Ia(LX,LY) = Ia(LY,LX) = IA(LX,LY) - U_LX*UD_LY;
+    Ia(LX,LZ) = Ia(LZ,LX) = IA(LX,LZ) - U_LX*UD_LZ;
+
+    Ia(LY,LY) =             IA(LY,LY) - U_LY*UD_LY;
+    Ia(LY,LZ) = Ia(LZ,LY) = IA(LY,LZ) - U_LY*UD_LZ;
+
+    Ia(LZ,LZ) =             IA(LZ,LZ) - U_LZ*UD_LZ;
 }
 ///@}
 
