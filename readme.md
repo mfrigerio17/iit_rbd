@@ -25,7 +25,7 @@ On Linux, you can install in the system include path with `./install.sh`
   - [Eigen](https://eigen.tuxfamily.org)
 
 # License
-Copyright (c) 2015-2023, Marco Frigerio
+Copyright (c) 2015-2024, Marco Frigerio
 
 Distributed under the BSD 2-clause license. See the `LICENSE` file for more
 details.
