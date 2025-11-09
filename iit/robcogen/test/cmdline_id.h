@@ -32,7 +32,7 @@ void cmdline_id(int argc, char** argv, typename ROB::InvDynEngine& id)
     typedef typename internal::ScalarTraitsSelector< ROB >::trait::Scalar Scalar;
     //
     int c = ROB::joints_count * 3 + 1;
-    typename ROB::FwdDynEngine::ExtForces fext(rbd::Force<Scalar>::Zero());
+    typename ROB::InvDynEngine::ExtForces fext(rbd::Force<Scalar>::Zero());
     if(argc > c) {
         std::string extForcesFile(argv[c]);
         robcogen::test::readExtForces<ROB>(extForcesFile, fext);
