@@ -37,18 +37,18 @@ void cmdline_fd(int argc, char** argv, typename ROB::FwdDynEngine& fd)
         std::string extForcesFile(argv[c]);
         robcogen::test::readExtForces<ROB>(extForcesFile, fext);
     }
-	
+
     fd.fd(qdd, q, qd, tau, fext);
-	std::cout << qdd << std::endl;
+    std::cout << qdd << std::endl;
 }
 
 template<class ROB>
 void cmdline_fd(int argc, char** argv)
 {
-    typename ROB::MotionTransforms  xm;
+    typename ROB::Transforms        xm;
     typename ROB::InertiaProperties ip;
     typename ROB::FwdDynEngine      fd(ip, xm);
-    cmdline_fd<ROB>(argc, argv, fd);
+    cmdline_fd<ROB> (argc, argv, fd);
 }
 
 /**
@@ -93,10 +93,10 @@ void cmdline_fd_fb(int argc, char** argv, typename ROB::FwdDynEngine& fd)
 template<class ROB>
 void cmdline_fd_fb(int argc, char** argv)
 {
-    typename ROB::MotionTransforms  xm;
+    typename ROB::Transforms        xm;
     typename ROB::InertiaProperties ip;
     typename ROB::FwdDynEngine      fd(ip, xm);
-    cmdline_fd_fb<ROB>(argc, argv, fd);
+    cmdline_fd_fb<ROB> (argc, argv, fd);
 }
 
 }

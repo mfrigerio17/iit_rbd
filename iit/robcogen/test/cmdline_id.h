@@ -39,13 +39,13 @@ void cmdline_id(int argc, char** argv, typename ROB::InvDynEngine& id)
     }
 
     id.id(tau, q, qd, qdd, fext);
-	std::cout << tau << std::endl;
+    std::cout << tau << std::endl;
 }
 
 template<class ROB>
 void cmdline_id(int argc, char** argv)
 {
-    typename ROB::MotionTransforms  xm;
+    typename ROB::Transforms        xm;
     typename ROB::InertiaProperties ip;
     typename ROB::InvDynEngine      id(ip, xm);
     cmdline_id<ROB> (argc, argv, id);
@@ -93,7 +93,7 @@ void cmdline_id_fb(int argc, char** argv, typename ROB::InvDynEngine& id)
 template<class ROB>
 void cmdline_id_fb(int argc, char** argv)
 {
-    typename ROB::MotionTransforms  xm;
+    typename ROB::Transforms        xm;
     typename ROB::InertiaProperties ip;
     typename ROB::InvDynEngine      id(ip, xm);
     cmdline_id_fb<ROB> (argc, argv, id);

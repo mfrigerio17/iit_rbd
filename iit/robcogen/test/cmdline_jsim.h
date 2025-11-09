@@ -34,9 +34,9 @@ void cmdline_jsim(int argc, char** argv, typename ROB::JSIM& jsim)
 template<class ROB>
 void cmdline_jsim(int argc, char** argv)
 {
-    typename ROB::ForceTransforms   xf;
+    typename ROB::Transforms        xm;
     typename ROB::InertiaProperties ip;
-    typename ROB::JSIM              jsim(ip, xf);
+    typename ROB::JSIM              jsim(ip, xm);
     cmdline_jsim<ROB>(argc, argv, jsim);
 }
 
