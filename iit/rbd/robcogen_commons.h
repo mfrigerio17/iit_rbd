@@ -199,15 +199,23 @@ void fillInertia(S mass, const Vec3<S>& com, const internal::SymmMat3x3Coefficie
     I(LX,LX) = I(LY,LY) = I(LZ,LZ) = mass;
 }
 
+///@} // end of implicit in-group elements [Doxygen]
+
 
 /**
- * Roto-translate a spatial inertia tensor.
+ * \name Spatial inertia tensor roto-translation
  *
- * This function is basically an optimized implementation of the formula to do
+ * Basically an optimized implementation of the formula to do
  * a coordinate transform for a spatial inertia:
  * \f[ XF \cdot I \cdot XF^T \f]
  * (see equation 2.66 of the RBDA book)
  *
+ * Two overloads are provided, one that works with the legacy RobCoGen
+ * coordinate transform (a 6x6 matrix), one that takes instead the new compact
+ * transform type.
+ */
+///@{
+/** \ingroup robcogen_commons
  * \param I_A the spatial inertia tensor of a rigid body, expressed in reference frame \c A
  * \param XF a spatial coordinate transform for force vectors, in the form \c B_XF_A
  *        (that is, mapping forces from A to B coordinates)
@@ -285,7 +293,67 @@ void transformInertia(
     fillInertia(mass, p_B, I3x3_B, I_B);
 }
 
-///@} // end of implicit in-group elements [Doxygen]
+/** \ingroup robcogen_commons
+ */
+template<typename Scalar = double>
+void transformInertia(
+        const InertiaMat<Scalar>& I_A,
+        const CTransformCore<Scalar>& A_ct_B,
+              InertiaMat<Scalar>& I_B)
+{
+    const Scalar mass{I_A.getMass()};
+
+    // The relative position 'r' of the origin of frame B wrt A (in A coordinates).
+    const Scalar rx{ A_ct_B.r_ab_a(X) };
+    const Scalar ry{ A_ct_B.r_ab_a(Y) };
+    const Scalar rz{ A_ct_B.r_ab_a(Z) };
+
+    // The relative position of the CoM wrt A (in A coordinates)
+    const Scalar comAx{ I_A(AZ,LY)/mass };
+    const Scalar comAy{ I_A(AX,LZ)/mass };
+    const Scalar comAz{ I_A(AY,LX)/mass };
+
+    // The relative position of the CoM wrt B (in A coordinates)
+    const typename Core<Scalar>::Vector3 p(comAx-rx, comAy-ry, comAz-rz);
+
+    // Pre-computation of some recurring squares
+    Scalar cx2 = comAx*comAx;
+    Scalar cy2 = comAy*comAy;
+    Scalar cz2 = comAz*comAz;
+    Scalar px2 = p(X)*p(X);
+    Scalar py2 = p(Y)*p(Y);
+    Scalar pz2 = p(Z)*p(Z);
+
+    // Manual implementation of the parallel axis theorem, to translate the
+    //  3x3 tensor from frame A to frame B :
+    internal::SymmMat3x3Coefficients<Scalar> I_translated(
+            I_A(AX,AX), I_A(AX,AY), I_A(AX,AZ)
+                      , I_A(AY,AY), I_A(AY,AZ)
+                                  , I_A(AZ,AZ));
+    I_translated.XX += mass*( py2 + pz2   - cy2 - cz2 );
+    I_translated.YY += mass*( px2 + pz2   - cx2 - cz2 );
+    I_translated.ZZ += mass*( px2 + py2   - cx2 - cy2 );
+    I_translated.XY += mass*( comAx*comAy - p(X)*p(Y) );
+    I_translated.XZ += mass*( comAx*comAz - p(X)*p(Z) );
+    I_translated.YZ += mass*( comAy*comAz - p(Y)*p(Z) );
+
+    // The coefficients of the 3x3 rotation matrix
+    const internal::Mat3x3Coefficients<Scalar> B_R_A{ A_ct_B.a_R_b.transpose() };
+    // Rotate the 3x3 tensor
+    internal::SymmMat3x3Coefficients<Scalar> I3x3_B;
+    internal::rot_symmetric_EAET<Scalar>(B_R_A, I_translated, I3x3_B);
+    // Rotate the CoM vector
+    const typename Core<Scalar>::Vector3 p_B(
+            B_R_A.XX*p(X) + B_R_A.XY*p(Y) + B_R_A.XZ*p(Z),
+            B_R_A.YX*p(X) + B_R_A.YY*p(Y) + B_R_A.YZ*p(Z),
+            B_R_A.ZX*p(X) + B_R_A.ZY*p(Y) + B_R_A.ZZ*p(Z)
+    );
+
+    // Finally copy the coefficients into the destination matrix
+    fillInertia(mass, p_B, I3x3_B, I_B);
+}
+///@}
+
 
 
 
