@@ -74,9 +74,11 @@ struct SymmMat3x3Coefficients {
     {}
 
     template <typename D>
-    SymmMat3x3Coefficients(const MatrixBase<D>& E) {
-        read(E);
-    }
+    explicit SymmMat3x3Coefficients(const MatrixBase<D>& E) :
+               XX( E(X,X) ), XY( E(X,Y) ), XZ( E(X,Z) ),
+                             YY( E(Y,Y) ), YZ( E(Y,Z) ),
+                                           ZZ( E(Z,Z) )
+    {}
 
     template <typename D>
     void read(const MatrixBase<D>& E)
