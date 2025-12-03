@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 2.8)
 project(iitrbd-tests)
 
 set(EIGEN_ROOT $ENV{EIGEN_ROOT}   CACHE PATH "Path to Eigen headers")
-set(CMAKE_CXX_FLAGS "-g -Wall -O3 -D EIGEN_NO_DEBUG -std=c++11")
+
+add_compile_definitions(EIGEN_NO_DEBUG)
+add_compile_options(-std=c++11 -Wall -O3)
 
 # Include directories
 include_directories(${EIGEN_ROOT})
@@ -17,6 +19,8 @@ if(CPPAD)
     include_directories(${CPPAD_ROOT})
 
     add_executable(test-cppad test-cppad.cpp)
+
+    add_executable(scalar-type-deduction scalar-type-deduction.cpp)
 endif(CPPAD)
 
 
