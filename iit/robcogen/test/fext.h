@@ -30,7 +30,7 @@ namespace test {
 template<class Traits>
 void readExtForces(
         std::istream& source,
-        typename Traits::FwdDynEngine::ExtForces& dest) // todo use a more generic, do not refer to forward dynamics, although it's the same thing
+        typename Traits::ExtForces& dest)
 {
     std::string line;
     std::istringstream in;
@@ -51,7 +51,7 @@ void readExtForces(
 template<class Traits>
 void readExtForces(
         const std::string& extForcesFile,
-        typename Traits::FwdDynEngine::ExtForces& fext)
+        typename Traits::ExtForces& fext)
 {
     std::ifstream source;
     source.open(extForcesFile.c_str(), std::ios::in);
