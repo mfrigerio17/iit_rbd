@@ -49,36 +49,40 @@ struct CTransformCore
     template <typename Derived>
     vector6 A_XM_B(const MatrixBase<Derived>& v_b) const
     {
+        using Scalar2 = typename Derived::Scalar;
         vector6 v_a;
-        angularPart(v_a) = a_R_b * angularPart(v_b);
-        linearPart(v_a)  = internal::cross(r_ab_a, angularPart(v_a)) + a_R_b *linearPart(v_b);
+        angularPart(v_a) = a_R_b * angularPart<Scalar2>(v_b);
+        linearPart(v_a)  = internal::cross(r_ab_a, angularPart(v_a)) + a_R_b *linearPart<Scalar2>(v_b);
         return v_a;
     }
 
     template <typename Derived>
     vector6  B_XM_A(const MatrixBase<Derived>& v_a) const
     {
+        using Scalar2 = typename Derived::Scalar;
         vector6 v_b;
-        angularPart(v_b) = a_R_b.transpose() * angularPart(v_a);
-        linearPart(v_b)  = a_R_b.transpose() * (internal::cross(-r_ab_a, angularPart(v_a)) + linearPart(v_a));
+        angularPart(v_b) = a_R_b.transpose() * angularPart<Scalar2>(v_a);
+        linearPart(v_b)  = a_R_b.transpose() * (internal::cross(-r_ab_a, angularPart<Scalar2>(v_a)) + linearPart<Scalar2>(v_a));
         return v_b;
     }
 
     template <typename Derived>
     vector6  A_XF_B(const MatrixBase<Derived>& v_B) const
     {
+        using Scalar2 = typename Derived::Scalar;
         vector6 v_A;
-        linearPart(v_A) = a_R_b * linearPart(v_B);
-        angularPart(v_A)=  internal::cross(r_ab_a, linearPart(v_A)) + a_R_b * angularPart(v_B);
+        linearPart(v_A) = a_R_b * linearPart<Scalar2>(v_B);
+        angularPart(v_A)=  internal::cross(r_ab_a, linearPart(v_A)) + a_R_b * angularPart<Scalar2>(v_B);
         return v_A;
     }
 
     template <typename Derived>
     vector6  B_XF_A(const MatrixBase<Derived>& v_A) const
     {
+        using Scalar2 = typename Derived::Scalar;
         vector6 v_B;
-        linearPart(v_B) = a_R_b.transpose() * linearPart(v_A);
-        angularPart(v_B)= a_R_b.transpose() * (internal::cross(-r_ab_a, linearPart(v_A)) + angularPart(v_A));
+        linearPart(v_B) = a_R_b.transpose() * linearPart<Scalar2>(v_A);
+        angularPart(v_B)= a_R_b.transpose() * (internal::cross(-r_ab_a, linearPart<Scalar2>(v_A)) + angularPart<Scalar2>(v_A));
         return v_B;
     }
 
