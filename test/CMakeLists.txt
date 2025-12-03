@@ -1,8 +1,10 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 project(iitrbd-tests)
 
 set(EIGEN_ROOT $ENV{EIGEN_ROOT}   CACHE PATH "Path to Eigen headers")
-set(CMAKE_CXX_FLAGS "-g -Wall -O3 -D EIGEN_NO_DEBUG -std=c++11")
+
+add_compile_definitions(EIGEN_NO_DEBUG)
+add_compile_options(-std=c++11 -Wall -O3)
 
 # Include directories
 include_directories(${EIGEN_ROOT})
@@ -10,7 +12,7 @@ include_directories(${EIGEN_ROOT})
 
 # Optional CppAD
 #
-set(CPPAD off CACHE BOOL "Enable tests of CppAD traits")
+option(CPPAD "Enable tests involving CppAD")
 if(CPPAD)
     add_definitions(-DIITRBD_CPPAD_IS_THERE)
     set(CPPAD_ROOT $ENV{CPPAD_ROOT}   CACHE PATH "Path to CppAD headers")
@@ -22,4 +24,4 @@ endif(CPPAD)
 
 # Add the binaries
 add_executable(basic-traits basic-traits.cpp)
-
+add_executable(scalar-type-deduction scalar-type-deduction.cpp)
