@@ -80,83 +80,61 @@ template<typename Scalar>
 using SparseVector = Eigen::SparseVector<Scalar>;
 ///@}
 
-/**
- * A container of basic type/function definitions, templated on the scalar type.
- *
- * \tparam SCALAR the numerical type for scalar values
- */
-template<typename SCALAR>
-struct Core
-{
-    typedef SCALAR Scalar;
 
-    /** \name Basic matrix types */
-    ///@{
-    template<int R, int C> using PlainMatrix = PlainMatrix<Scalar, R, C >;
-    typedef PlainMatrix<3,3> Matrix33;
-    typedef PlainMatrix<6,6> Matrix66;
-    typedef PlainMatrix<3,1> Vector3;
-    typedef PlainMatrix<6,1> Vector6;
-    ///@}
-
-    /**
-     * \name 6D vectors "à la Featherstone"
-     * Types of vectors used in dynamics computations.
-     */
-    ///@{
-    typedef Vector6  Vector6D;       // here the 'D' stands for Dimension, not double !
-    typedef Vector6D Column6D;
-    typedef Vector6D VelocityVector;
-    typedef Vector6D ForceVector;
-
-    typedef MatrixBlock<Vector6D,3,1>       Part3D;     ///< a 3D subvector of a 6D vector
-    typedef MatrixBlock<const Vector6D,3,1> Part3DConst;///< a const 3D subvector of a 6D vector
-    ///@}
-
-
-    /**
-     *  \name 6D vectors accessors
-     *  These functions allow to access the linear and the angular
-     *  coordinates of motion/force vectors.
-     */
-    ///@{
-    /**
-     * The 3-coordinate vector with the angular components (angular
-     * velocity or torque) of the given 6D vector.
-     */
-    static inline Part3D angularPart(Vector6D& f) {
-        return f.template topRows<3>();
-    }
-    /**
-     * The 3-coordinate vector with the linear components (linear
-     * velocity or force) of the given 6D vector.
-     */
-    static inline Part3D linearPart(Vector6D& f) {
-        return f.template bottomRows<3>();
-    }
-    static inline Part3DConst angularPart(const Vector6D& f) {
-        return f.template topRows<3>();
-    }
-    static inline Part3DConst linearPart(const Vector6D& f) {
-        return f.template bottomRows<3>();
-    }
-};
-
-#define TPL template<typename S>
 /**
  * \name Generators of individual core types
  *
  * These aliases are useful when one or few types are needed, given a Scalar.
  */
 ///@{
-TPL using Velocity = typename Core<S>::VelocityVector;
-TPL using Force    = typename Core<S>::ForceVector;
-TPL using Mat33    = typename Core<S>::Matrix33;
-TPL using Mat66    = typename Core<S>::Matrix66;
-TPL using Vec3     = typename Core<S>::Vector3;
-TPL using Vec6     = typename Core<S>::Vector6;
-///@}
+#define TPL template<typename S>
+TPL using Mat33    = PlainMatrix<S,3,3>;
+TPL using Mat66    = PlainMatrix<S,6,6>;
+TPL using Vec3     = PlainMatrix<S,3,1>;
+TPL using Vec6     = PlainMatrix<S,6,1>;
+TPL using Velocity = Vec6<S>;
+TPL using Force    = Vec6<S>;
+TPL using Part3    = MatrixBlock< Vec6<S>, 3,1>;     ///< a 3D subvector of a 6D vector
+TPL using Part3Const = MatrixBlock< const Vec6<S>, 3,1>;///< a const 3D subvector of a 6D vector
 #undef TPL
+///@}
+
+
+/**
+ * A container of core types, templated on the scalar type.
+ *
+ * \tparam SCALAR the numerical type for scalar values
+ */
+template<typename SCALAR>
+struct Core
+{
+    using Scalar = SCALAR;
+
+    /** \name Basic matrix types */
+    ///@{
+    using Matrix33 = Mat33<Scalar>;
+    using Matrix66 = Mat66<Scalar>;
+    using Vector3  = Vec3<Scalar>;
+    using Vector6  = Vec6<Scalar>;
+    ///@}
+
+    /**
+     * \name 6D vectors "à la Featherstone"
+     * Types of vectors used in dynamics computations.
+     * The capital 'D' stands for Dimension, not double !
+     */
+    ///@{
+    using Vector6D       = Vector6;
+    using Column6D       = Vector6D;
+    using VelocityVector = Vector6D;
+    using MotionVector   = Vector6D;
+    using ForceVector    = Vector6D;
+
+    using Part3D      = MatrixBlock<      Vector6D,3,1>;  ///< a 3D subvector of a 6D vector
+    using Part3DConst = MatrixBlock<const Vector6D,3,1>;  ///< a const 3D subvector of a 6D vector
+    ///@}
+};
+
 
 /**
  * \name Core types using double as scalar
@@ -187,19 +165,38 @@ using Column6d = Cored::Column6D;  // an alias
 
 using SparseMatrixd = SparseMatrix<double>;
 using SparseColumnd = SparseVector<double>;
+///@}
 
+/**
+ *  \name 6D vectors accessors
+ *  These functions allow to access the linear and the angular
+ *  coordinates of motion/force vectors.
+ */
+///@{
+/**
+ * The 3-coordinate vector with the angular components (angular
+ * velocity or torque) of the given 6D vector.
+ */
+template<typename Scalar>
+Part3<Scalar> angularPart(Vec6<Scalar>& f) {
+    return f.template topRows<3>();
+}
 
-inline Part3D angularPart(Vector6D& f) {
-    return Cored::angularPart(f);
+/**
+ * The 3-coordinate vector with the linear components (linear
+ * velocity or force) of the given 6D vector.
+ */
+template<typename Scalar>
+Part3<Scalar> linearPart(Vec6<Scalar>& f) {
+    return f.template bottomRows<3>();
 }
-inline Part3D linearPart(Vector6D& f) {
-    return Cored::linearPart(f);
+template<typename Scalar>
+Part3Const<Scalar> angularPart(const Vec6<Scalar>& f) {
+    return f.template topRows<3>();
 }
-inline Part3DConst angularPart(const Vector6D& f) {
-    return Cored::angularPart(f);
-}
-inline Part3DConst linearPart(const Vector6D& f) {
-    return Cored::linearPart(f);
+template<typename Scalar>
+Part3Const<Scalar> linearPart(const Vec6<Scalar>& f) {
+    return f.template bottomRows<3>();
 }
 ///@}
 
