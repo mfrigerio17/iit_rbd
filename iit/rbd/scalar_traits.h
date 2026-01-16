@@ -39,21 +39,27 @@ struct ScalarTraitsCommons
 
 namespace internal {
 
-template<typename FLOAT_t>
+template<typename Float_t>
 struct FloatPointFuncs
 {
-    typedef FLOAT_t Float_t;
-    inline static Float_t sin (const Float_t& x) { return std::sin(x);  }
-    inline static Float_t cos (const Float_t& x) { return std::cos(x);  }
-    inline static Float_t tan (const Float_t& x) { return std::tan(x);  }
-    inline static Float_t sinh(const Float_t& x) { return std::sinh(x); }
-    inline static Float_t cosh(const Float_t& x) { return std::cosh(x); }
-    inline static Float_t tanh(const Float_t& x) { return std::tanh(x); }
-    inline static Float_t exp (const Float_t& x) { return std::exp(x);  }
-    inline static Float_t abs (const Float_t& x) { return std::abs(x);  }
-    inline static Float_t fabs(const Float_t& x) { return std::fabs(x); }
-    inline static Float_t sqrt(const Float_t& x) { return std::sqrt(x); }
+    // I believe 'constexpr' is automatically "dropped" should the template
+    // argument be a non-literal type (or a "non-constexpr-constructible" type,
+    // whichever is more correct). So it is fine to have constexpr, for those
+    // types that would allow it.
+    // I cannot find a reference for this topic, though.
+    inline static constexpr Float_t sin (const Float_t& x) { return std::sin(x);  }
+    inline static constexpr Float_t cos (const Float_t& x) { return std::cos(x);  }
+    inline static constexpr Float_t tan (const Float_t& x) { return std::tan(x);  }
+    inline static constexpr Float_t sinh(const Float_t& x) { return std::sinh(x); }
+    inline static constexpr Float_t cosh(const Float_t& x) { return std::cosh(x); }
+    inline static constexpr Float_t tanh(const Float_t& x) { return std::tanh(x); }
+    inline static constexpr Float_t exp (const Float_t& x) { return std::exp(x);  }
+    inline static constexpr Float_t abs (const Float_t& x) { return std::abs(x);  }
+    inline static constexpr Float_t fabs(const Float_t& x) { return std::fabs(x); }
+    inline static constexpr Float_t sqrt(const Float_t& x) { return std::sqrt(x); }
 };
+
+
 
 } // namespace internal
 
