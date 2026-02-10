@@ -45,6 +45,7 @@ struct CTransformCore
 
     CTransformCore() {}
     explicit CTransformCore(int) : a_R_b(Mat33<Scalar>::Zero()), r_ab_a(0,0,0) {}
+    CTransformCore(const Mat33<Scalar>& R, const Vec3<Scalar>& r) : a_R_b(R), r_ab_a(r) {}
 
     template <typename Derived>
     vector6 A_XM_B(const MatrixBase<Derived>& v_b) const
@@ -232,6 +233,27 @@ struct TransformBase
 {
     TransformBase() {}
     explicit TransformBase(int foo) : ct(foo) {}
+    TransformBase(const CTransformCore<Scalar>& newct) : ct(newct) {};
+    TransformBase& operator=(const TransformBase& rhs) {
+        ct = rhs.ct;
+        return *this;
+    }
+
+    const Vec3<Scalar>& AB_vect_in_A_coords() const {
+        return ct.r_ab_a;
+    }
+
+    Vec3<Scalar> BA_vect_in_B_coords() const {
+        return - ct.a_R_b.transpose() * ct.r_ab_a;
+    }
+
+    const Mat33<Scalar>& A_rotmx_B() const {
+        return ct.a_R_b;
+    }
+
+    TransformBase compose(const TransformBase& rhs) {
+        return CTransformCore<Scalar>{ct.a_R_b * rhs.ct.a_R_b, ct.a_R_b * rhs.ct.r_ab_a + ct.r_ab_a};
+    }
 
     template<typename REPR>
     REPR as() const {
