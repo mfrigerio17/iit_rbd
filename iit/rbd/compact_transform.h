@@ -216,19 +216,29 @@ STRUCT_DEFINING_OPERATOR_STAR(B_XF_A)
 STRUCT_DEFINING_OPERATOR_STAR(A_XH_B)
 STRUCT_DEFINING_OPERATOR_STAR(B_XH_A)
 
-
-template<typename STATE, typename Actual>
-struct TransformBase : public StateDependentBase<STATE, Actual>
+/**
+ * A wrapper of CTransformCore proxying the vector-transform functions via the
+ * multiplication operator.
+ *
+ * Each instance acts is like a polymorphic (compile time) transform, returning
+ * proxy objects that can multiply vectors. For example
+ *
+ *    TransformBase<double> tf;
+ *    // ...
+ *    tf.as< B_XM_A<double> >() * vec; // calls CTransformCore::B_XM_A(vec)
+ */
+template<typename Scalar>
+struct TransformBase
 {
     TransformBase() {}
     explicit TransformBase(int foo) : ct(foo) {}
-
-    CTransformCore<typename STATE::Scalar> ct;
 
     template<typename REPR>
     REPR as() const {
         return REPR{ct};
     }
+
+    CTransformCore<Scalar> ct; ///< the actual numerical data
 };
 
 }
