@@ -35,14 +35,15 @@ void readExtForces(
     std::string line;
     std::istringstream in;
     typename Traits::LinkID link;
-
+    double aux;
     for(int i=0; i<Traits::links_count; i++) {
         std::getline(source, line);
         in.str(line);
         in.seekg(std::ios_base::beg);
         for(int f=0; f<6; f++) {
             link = (Traits::orderedLinkIDs())[i];
-            in >> (dest[link](f));
+            in >> aux;
+            dest[link](f) = aux;
         }
     }
 }
