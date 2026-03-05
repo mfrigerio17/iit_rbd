@@ -1,7 +1,7 @@
 /* CPYHDR { */
 /*
  * This file is part of the 'iit-rbd' library.
- * Copyright © 2015-2024, Marco Frigerio
+ * © 2015-present, Marco Frigerio
  *
  * See the LICENSE file for more information.
  */
@@ -34,8 +34,8 @@ using Scalar = typename internal::ScalarTraitsSelector< ROB >::trait::Scalar;
 
 }
 /**
- * \name Dynamics tests
- * These functions compare the output of three dynamics algorithms to verify
+ * \name Dynamics consistency tests
+ * These functions compare the output of the dynamics solvers to verify
  * they are consistent.
  *
  * Comparison results are simply reported by printing the difference between
@@ -43,27 +43,29 @@ using Scalar = typename internal::ScalarTraitsSelector< ROB >::trait::Scalar;
  *
  * The tests involve the quantities of the well known dynamics equation
  * \f[ M \ddot{q} + C + G = \tau \f]
- * which are computed in various ways using the engines for inverse-dynamics,
+ * which are computed in various ways using the solvers for inverse-dynamics,
  * forward-dynamics and the Joint Space Inertia Matrix (JSIM), using random
  * values for the input variables.
  *
  * The general test strategies are the following:
- * - (a) Inverse dynamics and JSIM:
- *    use the inverse dynamics engine to compute, separately, the gravity plus
- *    Coriolis joint forces (\f$C+G\f$) and the total joint forces
- *    (\f$\tau\f$); compute explicitly the inertia matrix (\f$M\f$) using the
- *    same joint status and then make sure that the obtained results satisfy
- *    the dynamics equation.
+ * - (a) Inverse dynamics:
+ *    use the dedicated methods of the inverse dynamics engine to compute
+ *    the gravity and Coriolis joint forces (\f$C+G\f$), and then compare the
+ *    results with the method for the total joint forces (\f$\tau\f$).
  *
- * - (b) Inverse and forward dynamics:
+ * - (b) Inverse dynamics and JSIM:
+ *    compute explicitly the inertia matrix (\f$M\f$) and check that it
+ *    satisfies the dynamics equation, using values for the joint space
+ *    acceleration and force obtained with inverse dynamics.
+ *
+ * - (c) Inverse and forward dynamics:
  *    use the forward dynamics engine to compute the joint accelerations,
- *    using the same position and velocity input as in test 1 and also using
- *    the inverse dynamics joint forces as input; the output joint
- *    accelerations should be equal to the input ones used with inverse
- *    dynamics. In other words, make sure that inverse and forward dynamics are
- *    actually complementary.
+ *    using the same position and velocity inputs and joint forces output from
+ *    inverse dynamics. The computed accelerations ought to be equal to the
+ *    input ones used with inverse dynamics. In other words, make sure that
+ *    inverse and forward dynamics are actually complementary.
  *
- * - (c) Forward dynamics and JSIM inverse:
+ * - (d) Forward dynamics and JSIM inverse:
  *    compare the joint accelerations computed with the forward dynamics and
  *    with the inverse of the joint space inertia matrix \f$M^{-1}\f$; the
  *    joint velocities are set to zero, the gravity terms \f$G\f$ are
@@ -75,24 +77,16 @@ using Scalar = typename internal::ScalarTraitsSelector< ROB >::trait::Scalar;
  */
 ///@{
 /**
- * Test of the dynamics of a fixed-base robot.
- *
- * This function performs the test (a) and (b) described in the general
- * comments (above).
- *
- * \param fwdDynEngine an instance of the forward dynamics class of the robot
- * \param invDynEngine an instance of the inverse dynamics class
- * \param jsim an instance of the Joint Space Inertia Matrix
+ * Test consistency of the inverse dynamics solver for fixed-base robots.
+ * Implements test (a).
  */
 template<class RT>
-void fixedBaseDynamics(
-    typename RT::FwdDynEngine& fwdDynEngine,
-    typename RT::InvDynEngine& invDynEngine,
-    typename RT::JSIM&         jsim)
+void fixedBaseID( typename RT::InvDynEngine& invDynEngine)
 {
     iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-5);
-    typename RT::JointState q, qd, qdd, qdd_fd, c, g, tau, diff;
-    robcogen::utils::rand_jstate<RT>(q, qd, qdd);
+    typename RT::JointState q, qd, c, g, tau, diff;
+    robcogen::utils::rand_jstate<RT>(q);
+    robcogen::utils::rand_jstate<RT>(qd);
 
     invDynEngine.G_terms(g, q);
     invDynEngine.C_terms(c, q, qd);
@@ -100,102 +94,176 @@ void fixedBaseDynamics(
     diff = tau - c - g;
     std::cout << "Inverse dynamics (consistency of the routines to compute gravity and Coriolis terms separately):" << std::endl;
     std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
-
-    invDynEngine.G_terms(g, q);
-    invDynEngine.C_terms(c, q, qd);
-    invDynEngine.id(tau, q, qd, qdd);
-    diff = tau - (jsim(q) * qdd + c + g);
-    std::cout << "Inverse dynamics and JSIM:" << std::endl;
-    std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
-
-    fwdDynEngine.fd(qdd_fd, q, qd, tau);
-    diff = qdd - qdd_fd;
-    std::cout << "Forward dynamics:" << std::endl;
-    std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
 }
 
 /**
- * Test of the dynamics of a floating-base robot.
- *
- * This function performs three checks. First, it executes test (a) described
- * in the general documentation above, using the inverse dynamics routine in
- * the assumption of a fully-actuated floating-base (and the inertia matrix).
- *
- * Then it checks the consistency between the two inverse dynamics functions:
- * the one for a fully-actuated base and the regular floating-base inverse
- * dynamics (which is really an hybrid dynamics algorithm).
- *
- * Third, the function performs test (c).
- *
- * \param fwdDynEngine an instance of the forward dynamics class of the robot
- * \param invDynEngine an instance of the inverse dynamics class
- * \param jsim an instance of the Joint Space Inertia Matrix
+ * Test consistency of the inverse dynamics solver for floating-base robots.
+ * Implements test (a) plus an extra consistency tests between the hybrid and
+ * fully-actuated solvers.
  */
 template<class RT>
-void floatingBaseDynamics(
-    typename RT::FwdDynEngine& fwdDynEngine,
-    typename RT::InvDynEngine& invDynEngine,
-    typename RT::JSIM&         jsim)
+void floatingBaseID( typename RT::InvDynEngine& invDynEngine)
 {
     iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-10);
-    typename RT::JointState q, qd, qdd, qdd_fd, tau_g, tau_c, tau, diff;
-    iit::rbd::VelocityVector base_v, base_a, base_a_fd, diff_base_a, gravity;
-    iit::rbd::ForceVector base_wrench_g, base_wrench_c, base_wrench, diff_wrench;
+    typename RT::JointState q, qd, qdd, tau_g, tau_c, tau, tau2;
+    iit::rbd::VelocityVector base_v, base_a, gravity;
+    iit::rbd::ForceVector base_wrench_g, base_wrench_c, base_wrench;
 
     robcogen::utils::rand_jstate<RT>(q, qd, qdd);
     iit::rbd::Utils::randomVec(base_v);
-    iit::rbd::Utils::randomVec(base_a);
     iit::rbd::Utils::randomGravity(gravity);
 
     invDynEngine.setJointStatus(q);
     invDynEngine.G_terms_fully_actuated(base_wrench_g, tau_g, gravity);
     invDynEngine.C_terms_fully_actuated(base_wrench_c, tau_c, base_v, qd);
-    invDynEngine.id_fully_actuated(base_wrench, tau, gravity, base_v, base_a, qd, qdd);
+    invDynEngine.id_fully_actuated(base_wrench, tau, gravity, base_v,
+                iit::rbd::VelocityVector::Zero(), qd,  RT::JointState::Zero());
+
+    std::cout << "Consistency of the routines to compute gravity and Coriolis terms separately - fully actuated case:" << std::endl;
+    std::cout << (tau - tau_c - tau_g).transpose().unaryExpr(approx) << std::endl << std::endl;
+
+    invDynEngine.id(tau, base_a,  gravity, base_v, qd, qdd);
+    invDynEngine.id_fully_actuated(base_wrench, tau2, gravity, base_v, base_a, qd, qdd);
+
+    std::cout << "Consistency between fully-actuated-floating-base inverse dynamics and hybrid dynamics:" << std::endl;
+    std::cout << (tau - tau2).transpose().unaryExpr(approx) << std::endl << std::endl;
+}
+
+/**
+ * Test consistency between inverse dynamics and the joint space inertia matrix
+ * for fixed-base-robot solvers.
+ * This function implements test (b), but
+ * tests the computation of L for the L^T L factorization.
+ */
+template<class RT>
+void fixedBaseJSIM(typename RT::InvDynEngine& invDynEngine,
+                   typename RT::JSIM&         jsim)
+{
+    iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-5);
+    typename RT::JointState q, qdd, g, tau, diff;
+    robcogen::utils::rand_jstate<RT>(q, g, qdd);
+
+    invDynEngine.id(tau, q, RT::JointState::Zero(), qdd);
+    invDynEngine.G_terms(g, q);
+    diff = tau - g - (jsim(q) * qdd);
+    std::cout << "Inverse dynamics and JSIM:" << std::endl;
+    std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
+
+    jsim.computeL();
+    typename RT::JSIM::MatrixType L = jsim.getL();
+    typename RT::JSIM::MatrixType Mdiff = jsim - L.transpose()*L;
+    std::cout << "JSIM and its LTL factorization:" << std::endl;
+    std::cout << Mdiff.unaryExpr(approx) << std::endl << std::endl;
+
+    jsim.computeInverse();
+    typename RT::JSIM::MatrixType inv = jsim.getInverse();
+    Mdiff = jsim * inv;
+    std::cout << "JSIM and its inverse (identity expected):" << std::endl;
+    std::cout << Mdiff.unaryExpr(approx) << std::endl << std::endl;
+}
+
+/**
+ * Test consistency between inverse dynamics and the joint space inertia matrix
+ * for floating-base-robot solvers.
+ * This function implements test (b), but
+ * also tests the computation of L for the L^T L factorization of the
+ * actual-joints block of the inertia matrix.
+ */
+template<class RT>
+void floatingBaseJSIM(
+    typename RT::InvDynEngine& invDynEngine,
+    typename RT::JSIM&         jsim)
+{
+    iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-10);
+    typename RT::JointState q, _, qdd, tau_g, tau, diff;
+    iit::rbd::VelocityVector base_a, base_a_fd, gravity;
+    iit::rbd::ForceVector base_wrench_g, base_wrench, diff_wrench;
+
+    robcogen::utils::rand_jstate<RT>(q, _, qdd);
+    iit::rbd::Utils::randomVec(base_a);
+    iit::rbd::Utils::randomGravity(gravity);
+
+    invDynEngine.setJointStatus(q);
+    invDynEngine.G_terms_fully_actuated(base_wrench_g, tau_g, gravity);
+    invDynEngine.id_fully_actuated(base_wrench, tau, gravity, iit::rbd::VelocityVector::Zero(), base_a, RT::JointState::Zero(), qdd);
     jsim(q);
 
-    diff = tau - (jsim.getF().transpose()*base_a + jsim.getFixedBaseBlock() * qdd + tau_c + tau_g);
+    diff = tau - (jsim.getF().transpose()*base_a + jsim.getFixedBaseBlock()*qdd + tau_g);
     diff_wrench = base_wrench -
             (jsim.getWholeBodyInertia() * base_a +
-                    jsim.getF() * qdd +
-                    base_wrench_g + base_wrench_c);
+                    jsim.getF() * qdd + base_wrench_g);
 
     std::cout << "Fully-actuated-floating-base inverse dynamics and JSIM:" << std::endl;
     std::cout <<
             diff_wrench.transpose().unaryExpr(approx) << "   " <<
             diff.transpose().unaryExpr(approx) << std::endl << std::endl;
 
+    jsim.computeL();
+    typename RT::JSIM::RealJointsBlock_matrix_t L = jsim.getL();
+    typename RT::JSIM::RealJointsBlock_matrix_t Mdiff = jsim.getFixedBaseBlock() - L.transpose()*L;
+    std::cout << "JSIM and its LTL factorization:" << std::endl;
+    std::cout << Mdiff.unaryExpr(approx) << std::endl << std::endl;
 
-    // Fully-actuated inverse dynamics asking for zero base acceleration; this
-    //  call returns the wrench to be applied to the base to prevent any
-    //  acceleration. Such wrench is equal and opposite to the wrench acting
-    //  on the base due to the motion of the actuated joints.
-    invDynEngine.id_fully_actuated(base_wrench, tau, gravity, base_v, iit::rbd::VelocityVector::Zero(), qd, qdd);
-    // The regular floating base inverse dynamics (ie hybrid dynamics). The
-    //  resulting base acceleration (consequence of the motion of the actuated
-    //  joints) should exactly correspond to the wrench to prevent acceleration
-    //  that we just computed
-    invDynEngine.id(tau, base_a,  gravity, base_v, qd, qdd);
+    jsim.computeInverse();
+    typename RT::JSIM::RealJointsBlock_matrix_t inv = jsim.getInverse();
+    Mdiff = jsim.getRealJointsBlock() * inv;
+    std::cout << "actuated-joints-block of the JSIM and its inverse (identity expected):" << std::endl;
+    std::cout << Mdiff.unaryExpr(approx) << std::endl << std::endl;
+}
 
-    std::cout << "Fully-actuated-floating-base inverse dynamics and hybrid dynamics:" << std::endl;
-    std::cout << (base_wrench + jsim.getWholeBodyInertia() * base_a)
-            .transpose().unaryExpr(approx) << std::endl << std::endl;
+/**
+ * Test consistency of the inverse and forward dynamics solvers.
+ * This function implements test (c).
+ */
+template<class RT>
+void fixedBaseFD( typename RT::FwdDynEngine& solverFD,
+                  typename RT::InvDynEngine& solverID)
+{
+    iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-5);
+    typename RT::JointState q, qd, qdd, qdd_fd, tau, diff;
+    robcogen::utils::rand_jstate<RT>(q, qd, qdd);
 
-
-
-    // Forward dynamics, check the consistency with previous results
-    fwdDynEngine.fd(qdd_fd, base_a_fd, base_v, gravity, q, qd, tau);
+    solverID.id(tau, q, qd, qdd);
+    solverFD.fd(qdd_fd, q, qd, tau);
     diff = qdd - qdd_fd;
+    std::cout << "Forward (and inverse) dynamics:" << std::endl;
+    std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
+}
+
+
+/**
+ * Test consistency of the inverse and forward dynamics solvers for a floating
+ * base robot.
+ * This function implements test (c).
+ */
+template<class RT>
+void floatingBaseFD( typename RT::FwdDynEngine& solverFD,
+                     typename RT::InvDynEngine& solverID)
+{
+    iit::rbd::Utils::CwiseAlmostZeroOp< Scalar<RT> > approx(1E-5);
+    typename RT::JointState q, qd, qdd, qdd_fd, tau, diff_qdd;
+    iit::rbd::VelocityVector base_v, base_a, base_a_fd, diff_base_a, gravity;
+
+    robcogen::utils::rand_jstate<RT>(q, qd, qdd);
+    iit::rbd::Utils::randomVec(base_v);
+    iit::rbd::Utils::randomGravity(gravity);
+
+    solverID.id(tau, base_a,  gravity, base_v, q, qd, qdd);
+    solverFD.fd(qdd_fd, base_a_fd, base_v, gravity, q, qd, tau);
+
+    diff_qdd    = qdd - qdd_fd;
     diff_base_a = base_a - base_a_fd;
-    std::cout << "Forward dynamics:" << std::endl;
+
+    std::cout << "Forward (and inverse) dynamics:" << std::endl;
     std::cout << diff_base_a.transpose().unaryExpr(approx) << "   " <<
-            diff.transpose().unaryExpr(approx) << std::endl << std::endl;
+            diff_qdd.transpose().unaryExpr(approx) << std::endl << std::endl;
 }
 
 /**
  * Test of the inverse of the Joint Space Inertia Matrix for a fixed-base
  * robot.
  *
- * This function performs the test (c) described in the general comments
+ * This function performs test (d) described in the general comments
  * (above).
  *
  * \param fwdDynEngine an instance of the forward dynamics class of the robot
@@ -222,63 +290,6 @@ void fixedBaseJSIMInverse(
     std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
 }
 ///@}
-
-
-namespace internal {
-
-template<class ROBOT_TRAITS, bool IS_FLOATING>
-struct tests_;
-
-template<class ROBOT_TRAITS>
-struct tests_<ROBOT_TRAITS, true>
-{
-    static void consistencyTests(
-            typename ROBOT_TRAITS::FwdDynEngine& fd,
-            typename ROBOT_TRAITS::InvDynEngine& id,
-            typename ROBOT_TRAITS::JSIM&         jsim)
-    {
-        floatingBaseDynamics<ROBOT_TRAITS>(fd, id, jsim);
-    }
-};
-
-template<class ROBOT_TRAITS>
-struct tests_<ROBOT_TRAITS, false>
-{
-    static void consistencyTests(
-            typename ROBOT_TRAITS::FwdDynEngine& fd,
-            typename ROBOT_TRAITS::InvDynEngine& id,
-            typename ROBOT_TRAITS::JSIM&         jsim)
-    {
-        fixedBaseDynamics<ROBOT_TRAITS>(fd, id, jsim);
-        fixedBaseJSIMInverse<ROBOT_TRAITS>(fd, id, jsim);
-    }
-};
-
-}
-
-
-
-template<class ROBOT_TRAITS>
-void consistencyTests(
-        typename ROBOT_TRAITS::InertiaProperties& ip,
-        typename ROBOT_TRAITS::MotionTransforms& xm,
-        typename ROBOT_TRAITS::ForceTransforms&  xf)
-{
-    typename ROBOT_TRAITS::InvDynEngine id  (ip, xm);
-    typename ROBOT_TRAITS::FwdDynEngine fd  (ip, xm);
-    typename ROBOT_TRAITS::JSIM         jsim(ip, xf);
-
-    internal::tests_<ROBOT_TRAITS, ROBOT_TRAITS::floating_base>::consistencyTests(fd,id,jsim);
-}
-
-template<class ROBOT_TRAITS>
-void consistencyTests(
-        typename ROBOT_TRAITS::FwdDynEngine& fd,
-        typename ROBOT_TRAITS::InvDynEngine& id,
-        typename ROBOT_TRAITS::JSIM&         jsim)
-{
-    internal::tests_<ROBOT_TRAITS, ROBOT_TRAITS::floating_base>::consistencyTests(fd,id,jsim);
-}
 
 }
 }
