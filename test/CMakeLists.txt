@@ -25,3 +25,4 @@ endif(CPPAD)
 # Add the binaries
 add_executable(basic-traits basic-traits.cpp)
 add_executable(scalar-type-deduction scalar-type-deduction.cpp)
+add_executable(datamap datamap.cpp)
