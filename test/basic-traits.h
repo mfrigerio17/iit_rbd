@@ -1,9 +1,11 @@
+/* CPYHDR { */
 /*
- * basic-traits.h
+ * SPDX-FileCopyrightText: © 2018 Marco Frigerio
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- *  Created on: Jun 1, 2018
- *      Author: marco
+ * This file is part of the 'iit-rbd' library.
  */
+/* } CPYHDR */
 
 #ifndef IIT_RBD_TEST_BASIC_TRAITS_H_
 #define IIT_RBD_TEST_BASIC_TRAITS_H_

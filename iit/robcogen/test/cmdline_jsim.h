@@ -1,3 +1,12 @@
+/* CPYHDR { */
+/*
+ * SPDX-FileCopyrightText: © 2015 Marco Frigerio
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * This file is part of the 'iit-rbd' library.
+ */
+/* } CPYHDR */
+
 #ifndef IIT_ROBCOGEN_TEST_JSIM_FB_H
 #define IIT_ROBCOGEN_TEST_JSIM_FB_H
 

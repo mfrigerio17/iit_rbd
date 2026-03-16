@@ -1,9 +1,9 @@
 /* CPYHDR { */
 /*
- * This file is part of the 'iit-rbd' library.
- * Copyright © 2015-2024, Marco Frigerio
+ * SPDX-FileCopyrightText: © 2015 Marco Frigerio
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- * See the LICENSE file for more information.
+ * This file is part of the 'iit-rbd' library.
  */
 /* } CPYHDR */
 #ifndef IIT_RBD_H_

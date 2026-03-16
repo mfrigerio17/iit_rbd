@@ -1,3 +1,12 @@
+/* CPYHDR { */
+/*
+ * SPDX-FileCopyrightText: © 2026 Marco Frigerio
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * This file is part of the 'iit-rbd' library.
+ */
+/* } CPYHDR */
+
 #ifndef IIT_RBD_DATA_MAP_H_
 #define IIT_RBD_DATA_MAP_H_
 

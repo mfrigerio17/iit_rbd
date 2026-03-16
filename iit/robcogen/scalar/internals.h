@@ -1,9 +1,11 @@
+/* CPYHDR { */
 /*
- * internals.h
+ * SPDX-FileCopyrightText: © 2018 Marco Frigerio
+ * SPDX-License-Identifier: BSD-2-Clause
  *
- *  Created on: Jun 6, 2018
- *      Author: marco
+ * This file is part of the 'iit-rbd' library.
  */
+/* } CPYHDR */
 
 #ifndef ROOT_IIT_ROBCOGEN_SCALAR_INTERNALS_H_
 #define ROOT_IIT_ROBCOGEN_SCALAR_INTERNALS_H_

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: © 2018 Marco Frigerio
+# SPDX-License-Identifier: BSD-2-Clause
+
 cmake_minimum_required(VERSION 3.5)
 project(iitrbd-tests)
 
