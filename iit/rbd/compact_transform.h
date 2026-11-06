@@ -41,8 +41,18 @@ namespace rbd {
  * transform for homogeneous coordinates and spatial vectors (both motion and
  * force): a rotation matrix and a translation vector.
  *
- * Different member functions implement the actual coordinate transformation for
- * the different representations.
+ * Different member functions implement the actual coordinate
+ * transformation for different representations and different polarities.
+ *
+ * We use 'A' and 'B' to name the two generic frames whose relative
+ * pose is encoded in this instance. The constructor takes the rotation
+ * matrix from 'B' coordinates to 'A' coordinates, and the vector of the
+ * position of the origin of 'B' relative to 'A', in 'A' coordinates.
+ *
+ * Thus, methods names like 'A_XX_B' or 'B_XX_A' convey the polarity of
+ * the transform they implement: imagine them to be matrices left
+ * multiplying a column vector, as in 'A_XX_B * v_B'.
+ * See https://mfrigerio17.github.io/robcogen2-web/algebra.html#coordinate-transformation-matrices
  */
 template<typename Scalar>
 struct CTransformCore
@@ -230,7 +240,7 @@ STRUCT_DEFINING_OPERATOR_STAR(B_XH_A)
  * A wrapper of CTransformCore proxying the vector-transform functions via the
  * multiplication operator.
  *
- * Each instance acts is like a polymorphic (compile time) transform, returning
+ * Each instance is like a polymorphic (compile time) transform, returning
  * proxy objects that can multiply vectors. For example
  *
  *    TransformBase<double> tf;
