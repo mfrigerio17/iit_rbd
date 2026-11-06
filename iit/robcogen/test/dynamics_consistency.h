@@ -90,7 +90,7 @@ void fixedBaseID( typename RT::InvDynEngine& invDynEngine)
 
     invDynEngine.G_terms(g, q);
     invDynEngine.C_terms(c, q, qd);
-    invDynEngine.id(tau, q, qd, RT::JointState::Zero());
+    invDynEngine.id(tau, q, qd, RT::JointState::Zero().eval());
     diff = tau - c - g;
     std::cout << "Inverse dynamics (consistency of the routines to compute gravity and Coriolis terms separately):" << std::endl;
     std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
