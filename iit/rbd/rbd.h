@@ -221,8 +221,18 @@ enum Coords6D { AX=0, AY, AZ, LX, LY, LZ };
  */
 constexpr double g{9.80665};
 
-}
-}
+/**
+ * A type for gravity vectors.
+ * Just a wrapper of a 3D vector of scalars, possibly useful for
+ * stronger typing and to avoid ambiguity with other 3-vectors
+ * (e.g. the joint state of a 3-dof robot).
+ */
+template<typename Scalar>
+struct GravityVec {
+    Vec3<Scalar> value;
+};
 
+}
+}
 
 #endif /* IIT_RBD_H_ */
