@@ -88,11 +88,33 @@ void fixedBaseID( typename RT::InvDynEngine& invDynEngine)
     robcogen::utils::rand_jstate<RT>(q);
     robcogen::utils::rand_jstate<RT>(qd);
 
+    invDynEngine.G_terms(tau, q);
+    invDynEngine.G_terms(g,   q, iit::rbd::g);
+    diff = tau - g;
+    std::cout << "Inverse dynamics - consistency of the overloads for the G terms:" << std::endl;
+    std::cout << diff.transpose().unaryExpr(approx) << std::endl;
+    invDynEngine.G_terms(g, q, iit::rbd::GravityVec<Scalar<RT> >{{0.,0., iit::rbd::g}});
+    diff = tau - g;
+    std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
+
     invDynEngine.G_terms(g, q);
     invDynEngine.C_terms(c, q, qd);
-    invDynEngine.id(tau, q, qd, RT::JointState::Zero().eval());
+    invDynEngine.id(tau, q, qd, RT::JointState::Zero());
     diff = tau - c - g;
-    std::cout << "Inverse dynamics (consistency of the routines to compute gravity and Coriolis terms separately):" << std::endl;
+    std::cout << "Inverse dynamics - consistency with the routines to compute gravity and Coriolis terms separately:" << std::endl;
+    std::cout << diff.transpose().unaryExpr(approx) << std::endl;
+
+    // another check for global consistency, but with custom gravity
+    const Scalar<RT> myG{6.3};
+    invDynEngine.G_terms(g, q, myG);
+    invDynEngine.id(tau, q, qd, RT::JointState::Zero(), myG);
+    diff = tau - c - g;
+    std::cout << diff.transpose().unaryExpr(approx) << std::endl;
+
+    const iit::rbd::GravityVec< Scalar<RT> > myGv{{0.4, 7.3, -1.2}};
+    invDynEngine.G_terms(g, q, myGv);
+    invDynEngine.id(tau, q, qd, RT::JointState::Zero(), myGv);
+    diff = tau - c - g;
     std::cout << diff.transpose().unaryExpr(approx) << std::endl << std::endl;
 }
 
